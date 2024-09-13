@@ -141,5 +141,4 @@ class CrystalStructureDataset(Dataset):
                 data.y = target
             else:
                 warnings.warn(f"Target property '{self.target_property}' not found for material {cif_id}")
-
         return data
