@@ -13,6 +13,7 @@ mp-api = "^0.42.1"
 torch-geometric = "^2.5.3"
 pymatgen = "^2024.9.10"
 numpy = "^2.1.1"
+scikit-learn = "^1.5.2"
 
 
 [build-system]
