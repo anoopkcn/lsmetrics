@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
+from torch.optim.adam import Adam
 import torch.nn.functional as F
 from torch_geometric.nn import CGConv, global_mean_pool
+import pytorch_lightning as pl
 
-class CSGNN(torch.nn.Module):
+class CSGNN(pl.LightningModule):
     def __init__(self, num_node_features, num_edge_features, hidden_channels, num_layers):
-        super(CSGNN, self).__init__()
+        super().__init__()
         self.num_layers = num_layers
 
         # Initial node embedding
@@ -54,3 +56,17 @@ class CSGNN(torch.nn.Module):
 
     def predict_property(self, data):
         return self.forward(data, mode='regression')
+
+    def training_step(self, batch, batch_idx):
+        y_hat = self(batch)
+        loss = F.mse_loss(y_hat, batch.y)
+        self.log('train_loss', loss)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        y_hat = self(batch)
+        loss = F.mse_loss(y_hat, batch.y)
+        self.log('val_loss', loss)
+
+    def configure_optimizers(self):
+        return Adam(self.parameters(), lr=0.01)
