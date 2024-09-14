@@ -80,9 +80,18 @@ class GaussianDistance(object):
         return torch.exp(-(distances - self.filter).pow(2) / self.var**2)
 
 class CrystalStructureDataset(Dataset):
-    def __init__(self, json_file, max_num_nbr=12, radius=8, dmin=0, step=0.2, target_property=None):
+    def __init__(self,
+        json_file,
+        max_num_nbr=12,
+        radius=8,
+        dmin=0,
+        step=0.2,
+        target_property=None,
+        all_neighbors=False
+    ):
         super().__init__()
         self.max_num_nbr, self.radius = max_num_nbr, radius
+        self.all_neighbors = all_neighbors
         self.ari = AtomCustomJSONInitializer()
         self.gdf = GaussianDistance(dmin=dmin, dmax=self.radius, step=step)
         self.target_property = target_property
@@ -102,22 +111,34 @@ class CrystalStructureDataset(Dataset):
         # Extract node features (e.g., atomic numbers)
         node_features = torch.stack([self.ari.get_atom_features(atom.specie.number) for atom in structure])
 
-        all_nbrs = structure.get_all_neighbors(self.radius, include_index=True)
-        all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]
-        edge_index, edge_attr = [], []
+        if self.all_neighbors:
+                # Connect all atoms to each other
+                num_atoms = len(structure)
+                edge_index = []
+                edge_attr = []
+                for i in range(num_atoms):
+                    for j in range(num_atoms):
+                        if i != j:
+                            edge_index.append([i, j])
+                            distance = structure.get_distance(i, j)
+                            edge_attr.append([distance])
+        else:
+            all_nbrs = structure.get_all_neighbors(self.radius, include_index=True)
+            all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]
+            edge_index, edge_attr = [], []
 
-        for center, nbr in enumerate(all_nbrs):
-            if len(nbr) < self.max_num_nbr:
-                warnings.warn(f'{cif_id} not find enough neighbors to build graph. '
-                              f'If it happens frequently, consider increase radius.')
-                nbr = nbr + [(structure[center], self.radius + 1., center)] * (self.max_num_nbr - len(nbr))
-            else:
-                nbr = nbr[:self.max_num_nbr]
+            for center, nbr in enumerate(all_nbrs):
+                if len(nbr) < self.max_num_nbr:
+                    warnings.warn(f'{cif_id} not find enough neighbors to build graph. '
+                                f'If it happens frequently, consider increase radius.')
+                    nbr = nbr + [(structure[center], self.radius + 1., center)] * (self.max_num_nbr - len(nbr))
+                else:
+                    nbr = nbr[:self.max_num_nbr]
 
-            for neighbor in nbr:
-                # neighbor is a tuple: (Site, distance, index)
-                edge_index.append([center, neighbor[2]])
-                edge_attr.append([neighbor[1]])  # distance
+                for neighbor in nbr:
+                    # neighbor is a tuple: (Site, distance, index)
+                    edge_index.append([center, neighbor[2]])
+                    edge_attr.append([neighbor[1]])  # distance
 
         edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
         edge_attr = torch.tensor(edge_attr, dtype=torch.float)
