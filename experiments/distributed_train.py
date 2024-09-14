@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Subset
 from torch.utils.data import Dataset
-from torch.optim.adam import Adam  # Correct import for Adam
+from torch.optim.adam import Adam
 from torch_geometric.loader import DataLoader
 from sklearn.model_selection import train_test_split
 import pytorch_lightning as pl
@@ -34,7 +34,7 @@ NUM_EPOCHS = 100
 HIDDEN_CHANNELS = 128
 NUM_LAYERS = 3
 CHECKPOINT_DIR = '../checkpoints'
-DATAFILE = 'combined_data.json'
+DATAFILE = 'perovskites_mp.json'
 
 # Create checkpoint directory if it doesn't exist
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
@@ -82,8 +82,8 @@ def main():
     trainer = pl.Trainer(
         max_epochs=NUM_EPOCHS,
         accelerator='auto',
-        devices="auto",  # Use all available GPUs
-        strategy='auto',  # Use DistributedDataParallel
+        devices="auto",
+        strategy='auto',
         callbacks=[checkpoint_callback]
     )
 
