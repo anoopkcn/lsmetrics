@@ -46,7 +46,7 @@ class CSGNN(pl.LightningModule):
             # Final layers for property prediction
             x = self.linear1(graph_embedding)
             x = F.relu(x)
-            property_prediction = self.linear2(x).squeeze()
+            property_prediction = self.linear2(x).view(-1)
             return property_prediction
         else:
             raise ValueError("Invalid mode. Use 'encoder' or 'regression'.")
@@ -59,14 +59,14 @@ class CSGNN(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         y_hat = self(batch)
-        loss = F.mse_loss(y_hat, batch.y)
-        self.log('train_loss', loss)
+        loss = F.mse_loss(y_hat, batch.y.view(-1))
+        self.log('train_loss', loss, batch_size=batch.num_graphs)
         return loss
 
     def validation_step(self, batch, batch_idx):
         y_hat = self(batch)
-        loss = F.mse_loss(y_hat, batch.y)
-        self.log('val_loss', loss)
+        loss = F.mse_loss(y_hat, batch.y.view(-1))
+        self.log('val_loss', loss, batch_size=batch.num_graphs)
 
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=0.01)
