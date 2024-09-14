@@ -133,7 +133,11 @@ class CrystalStructureDataset(Dataset):
         edge_attr = self.gdf.expand(edge_attr)
 
         # Create PyTorch Geometric Data object
-        data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_attr)
+        data = Data(
+            x=node_features,
+            edge_index=edge_index,
+            edge_attr=edge_attr
+        )
 
         if self.target_property is not None:
             if self.target_property in item:
