@@ -2,7 +2,6 @@ import os
 import json
 import torch
 import warnings
-import numpy as np
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
 from pymatgen.core import Structure
@@ -50,7 +49,7 @@ class AtomCustomJSONInitializer(AtomInitializer):
         atom_types = set(elem_embedding.keys())
         super(AtomCustomJSONInitializer, self).__init__(atom_types)
         for key, value in elem_embedding.items():
-            self._embedding[key] = np.array(value, dtype=float)
+            self._embedding[key] = torch.tensor(value, dtype=torch.float)
 
 class GaussianDistance(object):
     """
@@ -60,7 +59,7 @@ class GaussianDistance(object):
     def __init__(self, dmin, dmax, step, var=None):
         assert dmin < dmax
         assert dmax - dmin > step
-        self.filter = np.arange(dmin, dmax+step, step)
+        self.filter = torch.arange(dmin, dmax+step, step)
         if var is None:
             var = step
         self.var = var
@@ -77,13 +76,8 @@ class GaussianDistance(object):
         """
         distances = distances.view(-1, 1)  # Ensure shape is [num_edges, 1]
 
-        # Convert filter and var to torch tensors
-        filter_tensor = torch.tensor(self.filter, dtype=torch.float, device=distances.device)
-        var_tensor = torch.tensor(self.var, dtype=torch.float, device=distances.device)
-
         # Compute Gaussian expansion
-        return torch.exp(-(distances - filter_tensor).pow(2) / var_tensor.pow(2))
-
+        return torch.exp(-(distances - self.filter).pow(2) / self.var**2)
 
 class CrystalStructureDataset(Dataset):
     def __init__(self, json_file, max_num_nbr=12, radius=8, dmin=0, step=0.2, target_property=None):
@@ -106,8 +100,7 @@ class CrystalStructureDataset(Dataset):
         structure = Structure.from_dict(item['crystal_structure'])
 
         # Extract node features (e.g., atomic numbers)
-        node_features = np.array([self.ari.get_atom_features(atom.specie.number) for atom in structure])
-        node_features = torch.tensor(node_features, dtype=torch.float)
+        node_features = torch.stack([self.ari.get_atom_features(atom.specie.number) for atom in structure])
 
         all_nbrs = structure.get_all_neighbors(self.radius, include_index=True)
         all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]
