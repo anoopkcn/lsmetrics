@@ -10,7 +10,6 @@ from torch.optim.adam import Adam
 from torch_geometric.loader import DataLoader
 from sklearn.model_selection import train_test_split
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from csgnn.data.dataloader_json import CrystalStructureDataset
@@ -20,6 +19,7 @@ from csgnn.utils.checkpoint import load_checkpoint
 from torch.utils.data import Subset as TorchSubset
 from torch_geometric.data import Dataset as PyGDataset
 
+
 class CustomSubset(TorchSubset, PyGDataset):
     def __init__(self, dataset, indices):
         TorchSubset.__init__(self, dataset, indices)
@@ -28,38 +28,62 @@ class CustomSubset(TorchSubset, PyGDataset):
     def get(self, idx):
         return self.dataset[self.indices[idx]]
 
+
 # Hyperparameters
 BATCH_SIZE = 32
 LEARNING_RATE = 0.05
-NUM_EPOCHS = 100
+NUM_EPOCHS = 200
 HIDDEN_CHANNELS = 128
 NUM_LAYERS = 3
-CHECKPOINT_DIR = 'checkpoints'
+CHECKPOINT_DIR = "checkpoints"
 
 # Create checkpoint directory if it doesn't exist
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
-def main(datafile, resume=None):
-    full_dataset = CrystalStructureDataset(datafile, radius=10, target_property='band_gap', all_neighbors=True)
 
-    train_indices, test_indices = train_test_split(range(len(full_dataset)), test_size=0.2, random_state=42)
+def main(datafile, resume=None):
+    full_dataset = CrystalStructureDataset(
+        datafile, radius=10, target_property="band_gap", all_neighbors=True
+    )
+
+    train_indices, test_indices = train_test_split(
+        range(len(full_dataset)), test_size=0.2, random_state=42
+    )
     train_dataset = CustomSubset(full_dataset, train_indices)
     test_dataset = CustomSubset(full_dataset, test_indices)
 
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, persistent_workers=True)
-    val_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, persistent_workers=True)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        num_workers=4,
+        persistent_workers=True,
+    )
+    val_loader = DataLoader(
+        test_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=False,
+        num_workers=4,
+        persistent_workers=True,
+    )
 
     # Print diagnostic information
     print(f"Dataset length: {len(full_dataset)}")
     sample_data = full_dataset.get(0)
     print(f"Sample data: {sample_data}")
 
-    if sample_data is None or not hasattr(sample_data, 'x') or not hasattr(sample_data, 'edge_attr'):
+    if (
+        sample_data is None
+        or not hasattr(sample_data, "x")
+        or not hasattr(sample_data, "edge_attr")
+    ):
         print("Error: Unable to access required attributes from the dataset.")
         return
 
     num_node_features = sample_data.x.size(1) if sample_data.x is not None else 0
-    num_edge_features = sample_data.edge_attr.size(1) if sample_data.edge_attr is not None else 0
+    num_edge_features = (
+        sample_data.edge_attr.size(1) if sample_data.edge_attr is not None else 0
+    )
 
     print(f"Number of node features: {num_node_features}")
     print(f"Number of edge features: {num_edge_features}")
@@ -75,40 +99,44 @@ def main(datafile, resume=None):
             num_node_features=num_node_features,
             num_edge_features=num_edge_features,
             hidden_channels=HIDDEN_CHANNELS,
-            num_layers=NUM_LAYERS
+            num_layers=NUM_LAYERS,
         )
     else:
         model = CSGNN(
             num_node_features=num_node_features,
             num_edge_features=num_edge_features,
             hidden_channels=HIDDEN_CHANNELS,
-            num_layers=NUM_LAYERS
+            num_layers=NUM_LAYERS,
         )
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=CHECKPOINT_DIR,
-        filename='model-{epoch:02d}-{val_loss:.2f}',
+        filename="model-{epoch:02d}-{val_loss:.2f}",
         save_top_k=3,
-        monitor='val_loss'
+        monitor="val_loss",
     )
-    logger = TensorBoardLogger("tb_logs", name="csgnn")
 
     trainer = pl.Trainer(
-        logger=logger,
         max_epochs=NUM_EPOCHS,
-        accelerator='auto',
+        accelerator="auto",
         devices="auto",
-        strategy='auto',
+        strategy="auto",
         callbacks=[checkpoint_callback],
         log_every_n_steps=10,
     )
 
     trainer.fit(model, train_loader, val_loader)
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train CSGNN model')
-    parser.add_argument('--datafile', type=str, help='Path to the data file')
-    parser.add_argument('--resume', type=str, help='Path to the checkpoint file to resume training from', default=None)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train CSGNN model")
+    parser.add_argument("--datafile", type=str, help="Path to the data file")
+    parser.add_argument(
+        "--resume",
+        type=str,
+        help="Path to the checkpoint file to resume training from",
+        default=None,
+    )
     args = parser.parse_args()
 
     main(args.datafile, args.resume)

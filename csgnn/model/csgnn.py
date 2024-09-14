@@ -5,8 +5,11 @@ import torch.nn.functional as F
 from torch_geometric.nn import CGConv, global_mean_pool
 import pytorch_lightning as pl
 
+
 class CSGNN(pl.LightningModule):
-    def __init__(self, num_node_features, num_edge_features, hidden_channels, num_layers):
+    def __init__(
+        self, num_node_features, num_edge_features, hidden_channels, num_layers
+    ):
         super().__init__()
         self.num_layers = num_layers
 
@@ -23,10 +26,17 @@ class CSGNN(pl.LightningModule):
         self.linear2 = nn.Linear(hidden_channels, 1)  # For property prediction
 
         # Batch normalization layers (optional)
-        self.batch_norms = nn.ModuleList([nn.BatchNorm1d(hidden_channels) for _ in range(num_layers)])
+        self.batch_norms = nn.ModuleList(
+            [nn.BatchNorm1d(hidden_channels) for _ in range(num_layers)]
+        )
 
-    def forward(self, data, mode='regression'):
-        x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
+    def forward(self, data, mode="regression"):
+        x, edge_index, edge_attr, batch = (
+            data.x,
+            data.edge_index,
+            data.edge_attr,
+            data.batch,
+        )
 
         # Initial node embedding
         x = self.node_embedding(x)
@@ -40,9 +50,9 @@ class CSGNN(pl.LightningModule):
         # Global pooling
         graph_embedding = global_mean_pool(x, batch)
 
-        if mode == 'encoder':
+        if mode == "encoder":
             return graph_embedding
-        elif mode == 'regression':
+        elif mode == "regression":
             # Final layers for property prediction
             x = self.linear1(graph_embedding)
             x = F.relu(x)
@@ -52,21 +62,21 @@ class CSGNN(pl.LightningModule):
             raise ValueError("Invalid mode. Use 'encoder' or 'regression'.")
 
     def encode(self, data):
-        return self.forward(data, mode='encoder')
+        return self.forward(data, mode="encoder")
 
     def predict_property(self, data):
-        return self.forward(data, mode='regression')
+        return self.forward(data, mode="regression")
 
     def training_step(self, batch, batch_idx):
         y_hat = self(batch)
         loss = F.mse_loss(y_hat, batch.y.view(-1))
-        self.log('train_loss', loss, batch_size=batch.num_graphs)
+        self.log("train_loss", loss, batch_size=batch.num_graphs, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         y_hat = self(batch)
         loss = F.mse_loss(y_hat, batch.y.view(-1))
-        self.log('val_loss', loss, batch_size=batch.num_graphs)
+        self.log("val_loss", loss, batch_size=batch.num_graphs, prog_bar=True)
 
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=0.01)
