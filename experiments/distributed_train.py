@@ -13,7 +13,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from csgnn.data.dataloader_json import CrystalStructureDataset
-from csgnn.model.csgnn import CSGNN
+from csgnn.model.csgnn import CSGCNN
 from csgnn.utils.checkpoint import load_checkpoint
 
 from torch.utils.data import Subset as TorchSubset
@@ -31,8 +31,7 @@ class CustomSubset(TorchSubset, PyGDataset):
 
 # Hyperparameters
 BATCH_SIZE = 32
-LEARNING_RATE = 0.05
-NUM_EPOCHS = 200
+NUM_EPOCHS = 100
 HIDDEN_CHANNELS = 128
 NUM_LAYERS = 3
 CHECKPOINT_DIR = "checkpoints"
@@ -41,7 +40,7 @@ CHECKPOINT_DIR = "checkpoints"
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 
-def main(datafile, resume=None):
+def main(datafile, resume=None, lr=0.05):
     full_dataset = CrystalStructureDataset(
         datafile, radius=10, target_property="band_gap", all_neighbors=True
     )
@@ -94,19 +93,21 @@ def main(datafile, resume=None):
 
     if resume:
         print(f"Resuming from checkpoint: {resume}")
-        model = CSGNN.load_from_checkpoint(
+        model = CSGCNN.load_from_checkpoint(
             resume,
             num_node_features=num_node_features,
             num_edge_features=num_edge_features,
             hidden_channels=HIDDEN_CHANNELS,
             num_layers=NUM_LAYERS,
+            learning_rate=lr,
         )
     else:
-        model = CSGNN(
+        model = CSGCNN(
             num_node_features=num_node_features,
             num_edge_features=num_edge_features,
             hidden_channels=HIDDEN_CHANNELS,
             num_layers=NUM_LAYERS,
+            learning_rate=lr,
         )
 
     checkpoint_callback = ModelCheckpoint(
@@ -137,6 +138,7 @@ if __name__ == "__main__":
         help="Path to the checkpoint file to resume training from",
         default=None,
     )
+    parser.add_argument("--lr", type=float, default=0.05, help="Learning rate")
     args = parser.parse_args()
 
-    main(args.datafile, args.resume)
+    main(args.datafile, args.resume, args.lr)
