@@ -13,7 +13,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from csgnn.data.dataloader_json import CrystalStructureDataset
-from csgnn.model.csgnn import CSGCNN
+from csgnn.model import get_model, get_available_models
 from csgnn.utils.checkpoint import load_checkpoint
 
 from torch.utils.data import Subset as TorchSubset
@@ -40,7 +40,7 @@ CHECKPOINT_DIR = "checkpoints"
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 
-def main(datafile, resume=None, lr=0.05):
+def main(datafile, resume=None, lr=0.05, model_name="CSGCNN"):
     full_dataset = CrystalStructureDataset(
         datafile, radius=10, target_property="band_gap", all_neighbors=True
     )
@@ -91,9 +91,11 @@ def main(datafile, resume=None, lr=0.05):
         print("Error: Invalid number of features. Check your dataset implementation.")
         return
 
+    model_class = get_model(model_name)
+
     if resume:
         print(f"Resuming from checkpoint: {resume}")
-        model = CSGCNN.load_from_checkpoint(
+        model = model_class.load_from_checkpoint(
             resume,
             num_node_features=num_node_features,
             num_edge_features=num_edge_features,
@@ -102,7 +104,7 @@ def main(datafile, resume=None, lr=0.05):
             learning_rate=lr,
         )
     else:
-        model = CSGCNN(
+        model = model_class(
             num_node_features=num_node_features,
             num_edge_features=num_edge_features,
             hidden_channels=HIDDEN_CHANNELS,
@@ -139,6 +141,14 @@ if __name__ == "__main__":
         default=None,
     )
     parser.add_argument("--lr", type=float, default=0.05, help="Learning rate")
+    parser.add_argument(
+        "--model",
+        type=str,
+        choices=get_available_models(),
+        default="CSGCNN",
+        help="Model type to use",
+    )
+
     args = parser.parse_args()
 
-    main(args.datafile, args.resume, args.lr)
+    main(args.datafile, args.resume, args.lr, args.model)
