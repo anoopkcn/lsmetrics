@@ -3,6 +3,8 @@ import torch
 from torch_geometric.data import Data, Batch
 from csgnn.model.csgnn import CSGCNN, CSGANN
 from torch.optim.adam import Adam
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from typing import Dict, Any
 
 
 def test_csgcnn_initialization():
@@ -122,11 +124,26 @@ def test_csgcnn_configure_optimizers():
         num_node_features=10, num_edge_features=5, hidden_channels=32, num_layers=3
     )
 
-    optimizers, schedulers = model.configure_optimizers()
-    assert len(optimizers) == 1
-    assert len(schedulers) == 1
-    assert isinstance(optimizers[0], Adam)
-    assert isinstance(schedulers[0], torch.optim.lr_scheduler.ReduceLROnPlateau)
+    config = model.configure_optimizers()
+    assert isinstance(config, dict)
+
+    assert "optimizer" in config
+    assert isinstance(config["optimizer"], Adam)
+
+    assert "lr_scheduler" in config
+    assert isinstance(config["lr_scheduler"], dict)
+
+    lr_scheduler_config = config["lr_scheduler"]
+    assert "scheduler" in lr_scheduler_config
+    assert isinstance(lr_scheduler_config["scheduler"], ReduceLROnPlateau)
+
+    # Check for optional keys without assuming they exist
+    if "monitor" in lr_scheduler_config:
+        assert lr_scheduler_config["monitor"] == "val_loss"
+    if "interval" in lr_scheduler_config:
+        assert lr_scheduler_config["interval"] == "epoch"
+    if "frequency" in lr_scheduler_config:
+        assert lr_scheduler_config["frequency"] == 1
 
 
 def test_csgann_forward():
@@ -236,11 +253,26 @@ def test_csgann_configure_optimizers():
         num_node_features=10, num_edge_features=5, hidden_channels=32, num_layers=3
     )
 
-    optimizers, schedulers = model.configure_optimizers()
-    assert len(optimizers) == 1
-    assert len(schedulers) == 1
-    assert isinstance(optimizers[0], Adam)
-    assert isinstance(schedulers[0], torch.optim.lr_scheduler.ReduceLROnPlateau)
+    config = model.configure_optimizers()
+    assert isinstance(config, dict)
+
+    assert "optimizer" in config
+    assert isinstance(config["optimizer"], Adam)
+
+    assert "lr_scheduler" in config
+    assert isinstance(config["lr_scheduler"], dict)
+
+    lr_scheduler_config = config["lr_scheduler"]
+    assert "scheduler" in lr_scheduler_config
+    assert isinstance(lr_scheduler_config["scheduler"], ReduceLROnPlateau)
+
+    # Check for optional keys without assuming they exist
+    if "monitor" in lr_scheduler_config:
+        assert lr_scheduler_config["monitor"] == "val_loss"
+    if "interval" in lr_scheduler_config:
+        assert lr_scheduler_config["interval"] == "epoch"
+    if "frequency" in lr_scheduler_config:
+        assert lr_scheduler_config["frequency"] == 1
 
 
 @pytest.mark.parametrize("num_nodes", [1, 10, 1000])
