@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from pytorch_lightning.utilities.types import OptimizerLRSchedulerConfig
 
 
-class CSGCNN(pl.LightningModule):
+class CSGANN(pl.LightningModule):
     def __init__(
         self,
         num_node_features,
@@ -21,60 +21,56 @@ class CSGCNN(pl.LightningModule):
         super().__init__()
         self.learning_rate = learning_rate
         self.num_layers = num_layers
-
-        # Initial node embedding
         self.node_embedding = nn.Linear(num_node_features, hidden_channels)
 
-        # CGConv layers
         self.convs = nn.ModuleList()
-        self.batch_norms = nn.ModuleList()
         for _ in range(num_layers):
-            self.convs.append(CGConv(hidden_channels, num_edge_features, bias=True))
-            self.batch_norms.append(
-                nn.BatchNorm1d(hidden_channels, track_running_stats=False)
+            self.convs.append(
+                GATConv(hidden_channels, hidden_channels, edge_dim=num_edge_features)
             )
 
-        # Output layers
-        self.linear1 = nn.Linear(hidden_channels, hidden_channels)
-        self.linear2 = nn.Linear(hidden_channels, 1)  # For property prediction
+        self.layer_norms = nn.ModuleList(
+            [nn.LayerNorm(hidden_channels) for _ in range(num_layers)]
+        )
+        self.dropout = nn.Dropout(0.2)
 
-    def forward(self, data, mode="regression"):
+        self.linear1 = nn.Linear(hidden_channels, hidden_channels)
+        self.linear2 = nn.Linear(hidden_channels, 1)
+
+    def forward(self, data):
         x, edge_index, edge_attr, batch = (
             data.x,
             data.edge_index,
             data.edge_attr,
             data.batch,
         )
-
-        # Initial node embedding
         x = self.node_embedding(x)
 
-        # Graph convolutions
         for i, conv in enumerate(self.convs):
             x = conv(x, edge_index, edge_attr)
-            x = F.relu(x)
-            if x.size(0) > 1:
-                x = self.batch_norms[i](x)
+            x = F.elu(x)
+            x = self.layer_norms[i](x)
+            # x = self.dropout(x)
 
-        # Global pooling
-        graph_embedding = global_mean_pool(x, batch)
-
-        if mode == "encoder":
-            return graph_embedding
-        elif mode == "regression":
-            # Final layers for property prediction
-            x = self.linear1(graph_embedding)
-            x = F.relu(x)
-            property_prediction = self.linear2(x).view(-1)
-            return property_prediction
-        else:
-            raise ValueError("Invalid mode. Use 'encoder' or 'regression'.")
+        x = global_mean_pool(x, batch)
+        return x
 
     def encode(self, data):
-        return self.forward(data, mode="encoder")
+        """
+        Encode the input data into a graph embedding.
+        """
+        return self.forward(data)
 
     def predict_property(self, data):
-        return self.forward(data, mode="regression")
+        """
+        Predict the property using the graph embedding.
+        """
+        x = self.encode(data)
+        x = self.linear1(x)
+        x = F.elu(x)
+        # x = self.dropout(x)
+        x = self.linear2(x).view(-1)
+        return x
 
     def training_step(self, batch, batch_idx):
         y_hat = self.predict_property(batch)
