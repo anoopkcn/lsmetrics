@@ -77,14 +77,14 @@ class CSGCNN(pl.LightningModule):
         return self.forward(data, mode="regression")
 
     def training_step(self, batch, batch_idx):
-        y_hat = self(batch)
-        loss = F.mse_loss(y_hat, batch.y.view(-1))
+        y_hat = self.predict_property(batch)
+        loss = F.l1_loss(y_hat, batch.y.view(-1))
         self.log("train_loss", loss, batch_size=batch.num_graphs, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        y_hat = self(batch)
-        loss = F.mse_loss(y_hat, batch.y.view(-1))
+        y_hat = self.predict_property(batch)
+        loss = F.l1_loss(y_hat, batch.y.view(-1))
         self.log("val_loss", loss, batch_size=batch.num_graphs, prog_bar=True)
 
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
@@ -166,13 +166,13 @@ class CSGANN(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         y_hat = self.predict_property(batch)
-        loss = F.huber_loss(y_hat, batch.y.view(-1))
+        loss = F.l1_loss(y_hat, batch.y.view(-1))
         self.log("train_loss", loss, batch_size=batch.num_graphs, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         y_hat = self.predict_property(batch)
-        loss = F.huber_loss(y_hat, batch.y.view(-1))
+        loss = F.l1_loss(y_hat, batch.y.view(-1))
         self.log("val_loss", loss, batch_size=batch.num_graphs, prog_bar=True)
 
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
