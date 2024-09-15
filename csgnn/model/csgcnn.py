@@ -17,6 +17,7 @@ class CSGCNN(pl.LightningModule):
         hidden_channels,
         num_layers,
         learning_rate=0.01,
+        pretrained_path=None,
     ):
         super().__init__()
         self.learning_rate = learning_rate
@@ -37,6 +38,9 @@ class CSGCNN(pl.LightningModule):
         # Output layers
         self.linear1 = nn.Linear(hidden_channels, hidden_channels)
         self.linear2 = nn.Linear(hidden_channels, 1)  # For property prediction
+
+        if pretrained_path:
+            self.load_pretrained(pretrained_path)
 
     def forward(self, data, mode="regression"):
         x, edge_index, edge_attr, batch = (
@@ -99,3 +103,50 @@ class CSGCNN(pl.LightningModule):
                 "frequency": 1,
             },
         }
+
+    def load_pretrained(self, pretrained_path):
+        """
+        Load pretrained weights from a file.
+        """
+        if not pretrained_path:
+            return
+
+        try:
+            # Load the state dict
+            state_dict = torch.load(pretrained_path, map_location=self.device)
+
+            # If it's a checkpoint file, extract just the model state dict
+            if isinstance(state_dict, dict) and "state_dict" in state_dict:
+                state_dict = state_dict["state_dict"]
+
+            # Load the state dict, allowing for missing or unexpected keys
+            self.load_state_dict(state_dict, strict=False)
+            print(f"Loaded pretrained model from {pretrained_path}")
+        except Exception as e:
+            print(f"Error loading pretrained model: {str(e)}")
+
+    def freeze_encoder(self):
+        """
+        Freeze the encoder part of the model (useful for fine-tuning).
+        """
+        for param in self.node_embedding.parameters():
+            param.requires_grad = False
+        for conv in self.convs:
+            for param in conv.parameters():
+                param.requires_grad = False
+        for bn in self.batch_norms:
+            for param in bn.parameters():
+                param.requires_grad = False
+
+    def unfreeze_encoder(self):
+        """
+        Unfreeze the encoder part of the model.
+        """
+        for param in self.node_embedding.parameters():
+            param.requires_grad = True
+        for conv in self.convs:
+            for param in conv.parameters():
+                param.requires_grad = True
+        for bn in self.batch_norms:
+            for param in bn.parameters():
+                param.requires_grad = True
