@@ -6,6 +6,7 @@ from torch_geometric.nn import CGConv, global_mean_pool
 from torch_geometric.nn import GATConv
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from pytorch_lightning.utilities.types import OptimizerLRSchedulerConfig
 
 
 class CSGCNN(pl.LightningModule):
@@ -86,10 +87,18 @@ class CSGCNN(pl.LightningModule):
         loss = F.mse_loss(y_hat, batch.y.view(-1))
         self.log("val_loss", loss, batch_size=batch.num_graphs, prog_bar=True)
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         optimizer = Adam(self.parameters(), lr=self.learning_rate, weight_decay=1e-5)
         scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
-        return [optimizer], [scheduler]
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+                "interval": "epoch",
+                "frequency": 1,
+            },
+        }
 
 
 class CSGANN(pl.LightningModule):
@@ -166,7 +175,15 @@ class CSGANN(pl.LightningModule):
         loss = F.huber_loss(y_hat, batch.y.view(-1))
         self.log("val_loss", loss, batch_size=batch.num_graphs, prog_bar=True)
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         optimizer = Adam(self.parameters(), lr=self.learning_rate, weight_decay=1e-5)
         scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
-        return [optimizer], [scheduler]
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+                "interval": "epoch",
+                "frequency": 1,
+            },
+        }
