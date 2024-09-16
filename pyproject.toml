@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "csgnn"
 version = "0.1.0"
-description = ""
+description = "Crystal Structure Graph Neural Network"
 authors = ["Anoop K. Chandran <anoopkcn@gmail.com>"]
 readme = "README.md"
 
