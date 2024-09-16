@@ -3,91 +3,12 @@ import json
 import torch
 import warnings
 from torch_geometric.data import Dataset, Data
-from torch_geometric.loader import DataLoader
 from pymatgen.core import Structure
-from csgnn.data.atom_init import atom_init
+from .base_dataloader import AtomCustomJSONInitializer
+from .utils import GaussianDistance
 
 
-class AtomInitializer(object):
-    """
-    Base class for intializing the vector representation for atoms.
-
-    !!! Use one AtomInitializer per dataset !!!
-    """
-
-    def __init__(self, atom_types):
-        self.atom_types = set(atom_types)
-        self._embedding = {}
-
-    def get_atom_features(self, atom_type):
-        assert atom_type in self.atom_types
-        return self._embedding[atom_type]
-
-    def load_state_dict(self, state_dict):
-        self._embedding = state_dict
-        self.atom_types = set(self._embedding.keys())
-        self._decodedict = {
-            idx: atom_type for atom_type, idx in self._embedding.items()
-        }
-
-    def state_dict(self):
-        return self._embedding
-
-    def decode(self, idx):
-        if not hasattr(self, "_decodedict"):
-            self._decodedict = {
-                idx: atom_type for atom_type, idx in self._embedding.items()
-            }
-        return self._decodedict[idx]
-
-
-class AtomCustomJSONInitializer(AtomInitializer):
-    """
-    Initialize atom feature vectors using a dictionary mapping
-    from element number to a list representing the
-    feature vector of the element.
-    """
-
-    def __init__(self):
-        elem_embedding = atom_init
-        elem_embedding = {int(key): value for key, value in elem_embedding.items()}
-        atom_types = set(elem_embedding.keys())
-        super(AtomCustomJSONInitializer, self).__init__(atom_types)
-        for key, value in elem_embedding.items():
-            self._embedding[key] = torch.tensor(value, dtype=torch.float)
-
-
-class GaussianDistance(object):
-    """
-    Expands the distance by Gaussian basis.
-    Unit: angstrom
-    """
-
-    def __init__(self, dmin, dmax, step, var=None):
-        assert dmin < dmax
-        assert dmax - dmin > step
-        self.filter = torch.arange(dmin, dmax + step, step)
-        if var is None:
-            var = step
-        self.var = var
-
-    def expand(self, distances):
-        """
-        Apply Gaussian distance expansion to distances.
-
-        Args:
-        distances (torch.Tensor): A tensor of shape [num_edges, 1] containing the distances.
-
-        Returns:
-        torch.Tensor: A tensor of shape [num_edges, num_gaussian_filters] containing the expanded distances.
-        """
-        distances = distances.view(-1, 1)  # Ensure shape is [num_edges, 1]
-
-        # Compute Gaussian expansion
-        return torch.exp(-(distances - self.filter).pow(2) / self.var**2)
-
-
-class CrystalStructureDataset(Dataset):
+class GaussianDistanceGraphDataset(Dataset):
     def __init__(
         self,
         json_file,
