@@ -11,7 +11,12 @@ from sklearn.model_selection import train_test_split
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from csgnn.data.dataloader_json import CrystalStructureDataset
+from csgnn.dataloaders import (
+    GaussianDistanceGraphDataset,
+    SimpleCoulombGraphDataset,
+    AdvancedCrystalGraphDataset,
+)
+
 from csgnn.model import get_model, get_available_models
 from csgnn.utils.checkpoint import load_checkpoint
 
@@ -45,8 +50,10 @@ def main(
     # Create checkpoint directory if it doesn't exist
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    full_dataset = CrystalStructureDataset(
-        datafile, radius=10, target_property="band_gap", all_neighbors=True
+    full_dataset = AdvancedCrystalGraphDataset(
+        datafile,
+        radius=10,
+        target_property="band_gap",
     )
 
     train_indices, test_indices = train_test_split(
@@ -118,7 +125,7 @@ def main(
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=checkpoint_dir,
-        filename="model-{epoch:02d}-{val_loss:.2f}",
+        filename=f"{model_name}" + "-model-{epoch:02d}-{val_loss:.2f}",
         save_top_k=3,
         monitor="val_loss",
     )
