@@ -1,4 +1,4 @@
-from csgnn.data.atom_init import atom_init
+from .atom_init import atom_init
 import torch
 
 
