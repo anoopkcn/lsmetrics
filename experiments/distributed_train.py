@@ -12,7 +12,11 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.strategies import DDPStrategy
 
-from csgnn.dataloaders.utils import TruncatedCoulombCalculator
+from csgnn.dataloaders.utils import (
+    TruncatedCoulombCalculator,
+    RBFCalculator,
+    GaussianDistanceCalculator,
+)
 from csgnn.dataloaders import CrystalStructureGraphDataset
 
 from csgnn.model import get_model, get_available_models
@@ -20,6 +24,8 @@ from csgnn.utils.checkpoint import load_checkpoint
 
 from torch.utils.data import Subset as TorchSubset
 from torch_geometric.data import Dataset as PyGDataset
+
+torch.set_default_tensor_type(torch.FloatTensor)
 
 
 class CustomSubset(TorchSubset, PyGDataset):
@@ -50,13 +56,16 @@ def main(
     # Create checkpoint directory if it doesn't exist
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    coulomb_calculator = TruncatedCoulombCalculator(cutoff_radius=10.0)
+    calculator = RBFCalculator()
+    # calculator = TruncatedCoulombCalculator(cutoff_radius=10.0)
+    # calculator = GaussianDistanceCalculator(0, 10, 0.02)
 
     full_dataset = CrystalStructureGraphDataset(
         datafile,
         radius=10,
         target_property="band_gap",
-        energy_calculator=coulomb_calculator,
+        calculators=[calculator],
+        # expand=True,
     )
 
     train_indices, test_indices = train_test_split(
@@ -137,8 +146,8 @@ def main(
         max_epochs=num_epochs,
         accelerator="gpu",
         devices="auto",
-        num_nodes=num_nodes,
-        strategy=DDPStrategy(find_unused_parameters=False),
+        # num_nodes=num_nodes,
+        strategy="auto",  # DDPStrategy(find_unused_parameters=False),
         callbacks=[checkpoint_callback],
         log_every_n_steps=10,
     )

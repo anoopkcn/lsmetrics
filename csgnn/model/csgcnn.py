@@ -24,29 +24,37 @@ class CSGCNN(pl.LightningModule):
         self.num_layers = num_layers
 
         # Initial node embedding
-        self.node_embedding = nn.Linear(num_node_features, hidden_channels)
+        self.node_embedding = nn.Linear(
+            num_node_features, hidden_channels, dtype=torch.float32
+        )
 
         # CGConv layers
         self.convs = nn.ModuleList()
         self.batch_norms = nn.ModuleList()
         for _ in range(num_layers):
-            self.convs.append(CGConv(hidden_channels, num_edge_features, bias=True))
+            self.convs.append(
+                CGConv(hidden_channels, num_edge_features, bias=True).to(torch.float32)
+            )
             self.batch_norms.append(
-                nn.BatchNorm1d(hidden_channels, track_running_stats=False)
+                nn.BatchNorm1d(
+                    hidden_channels, track_running_stats=False, dtype=torch.float32
+                )
             )
 
         # Output layers
-        self.linear1 = nn.Linear(hidden_channels, hidden_channels)
-        self.linear2 = nn.Linear(hidden_channels, 1)  # For property prediction
+        self.linear1 = nn.Linear(hidden_channels, hidden_channels, dtype=torch.float32)
+        self.linear2 = nn.Linear(
+            hidden_channels, 1, dtype=torch.float32
+        )  # For property prediction
 
         if pretrained_path:
             self.load_pretrained(pretrained_path)
 
     def forward(self, data, mode="regression"):
         x, edge_index, edge_attr, batch = (
-            data.x,
+            data.x.float(),
             data.edge_index,
-            data.edge_attr,
+            data.edge_attr.float(),
             data.batch,
         )
 
@@ -80,9 +88,24 @@ class CSGCNN(pl.LightningModule):
     def predict_property(self, data):
         return self.forward(data, mode="regression")
 
+    def custom_loss(self, y_pred, y_true):
+        # Your custom loss function
+        mse_loss = F.mse_loss(y_pred, y_true)
+        l1_loss = F.l1_loss(y_pred, y_true)
+        huber_loss = F.smooth_l1_loss(y_pred, y_true)
+        return 0.4 * mse_loss + 0.4 * l1_loss + 0.2 * huber_loss
+
     def training_step(self, batch, batch_idx):
         y_hat = self.predict_property(batch)
-        loss = F.l1_loss(y_hat, batch.y.view(-1))
+        y_true = batch.y.float().view(-1)
+
+        # Calculate custom loss for training
+        loss = self.custom_loss(y_hat, y_true)
+
+        # Calculate MAE for comparison
+        mae = F.l1_loss(y_hat, y_true)
+
+        # Log both losses
         self.log(
             "train_loss",
             loss,
@@ -90,13 +113,39 @@ class CSGCNN(pl.LightningModule):
             prog_bar=True,
             sync_dist=True,
         )
+        self.log(
+            "train_mae", mae, batch_size=batch.num_graphs, prog_bar=True, sync_dist=True
+        )
+
         return loss
 
     def validation_step(self, batch, batch_idx):
         y_hat = self.predict_property(batch)
-        loss = F.l1_loss(y_hat, batch.y.view(-1))
+        y_true = batch.y.float().view(-1)
+
+        # Calculate custom loss
+        loss = self.custom_loss(y_hat, y_true)
+
+        # Calculate MAE for comparison
+        mae = F.l1_loss(y_hat, y_true)
+
+        # Log both losses
         self.log(
             "val_loss", loss, batch_size=batch.num_graphs, prog_bar=True, sync_dist=True
+        )
+        self.log(
+            "val_mae", mae, batch_size=batch.num_graphs, prog_bar=True, sync_dist=True
+        )
+
+    def test_step(self, batch, batch_idx):
+        y_hat = self.predict_property(batch)
+        y_true = batch.y.float().view(-1)
+
+        # Calculate MAE for final evaluation
+        mae = F.l1_loss(y_hat, y_true)
+
+        self.log(
+            "test_mae", mae, batch_size=batch.num_graphs, prog_bar=True, sync_dist=True
         )
 
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
