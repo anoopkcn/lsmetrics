@@ -27,11 +27,10 @@ class CrystalStructureGraphDataset(Dataset):
         self.dtype = torch.float32
 
         # Set up calculators
-        self.gaussian_calculator = GaussianDistanceCalculator(
-            dmin=0, dmax=radius, step=0.2
-        )
         if calculators is None:
-            self.calculators = [self.gaussian_calculator]
+            self.calculators = [
+                GaussianDistanceCalculator(dmin=0, dmax=radius, step=0.2)
+            ]
         elif isinstance(calculators, list):
             self.calculators = calculators
         else:
@@ -92,10 +91,7 @@ class CrystalStructureGraphDataset(Dataset):
         # Calculate edge attributes using all provided calculators
         edge_attrs = []
         for calculator in self.calculators:
-            if isinstance(calculator, GaussianDistanceCalculator):
-                edge_attr = calculator.expand(distances)
-            else:
-                edge_attr = calculator.calculate_pairwise(structure, edge_index)
+            edge_attr = calculator.calculate_pairwise(structure, edge_index)
             edge_attrs.append(edge_attr.to(self.dtype))
 
         # Concatenate all edge attributes
