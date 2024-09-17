@@ -25,7 +25,7 @@ from csgnn.utils.checkpoint import load_checkpoint
 from torch.utils.data import Subset as TorchSubset
 from torch_geometric.data import Dataset as PyGDataset
 
-torch.set_default_tensor_type(torch.FloatTensor)
+torch.set_default_dtype(torch.float32)
 
 
 class CustomSubset(TorchSubset, PyGDataset):
