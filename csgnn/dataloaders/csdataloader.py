@@ -9,6 +9,7 @@ from csgnn.dataloaders.utils import (
     EwaldSummationCalculator,
     AtomCustomJSONInitializer,
 )
+from csgnn.dataloaders.utils import AtomFeatureCalculator
 
 
 class CrystalStructureGraphDataset(Dataset):
@@ -23,6 +24,7 @@ class CrystalStructureGraphDataset(Dataset):
         super().__init__()
         self.max_num_nbr, self.radius = max_num_nbr, radius
         self.ari = AtomCustomJSONInitializer()
+        self.atom_feature_calculator = AtomFeatureCalculator()
         self.target_property = target_property
         self.dtype = torch.float32
 
@@ -54,11 +56,18 @@ class CrystalStructureGraphDataset(Dataset):
         for atom in structure:
             atom_number = atom.specie.number
             if atom_number is not None and isinstance(atom_number, int):
-                node_features.append(self.ari.get_atom_features(atom_number))
+                basic_features = self.ari.get_atom_features(atom_number)
+                extended_features = self.atom_feature_calculator.calculate_features(
+                    atom_number
+                )
+                combined_features = torch.cat([basic_features, extended_features])
+                node_features.append(combined_features)
             else:
                 print(f"Warning: Invalid atom number for atom: {atom}")
                 default_feature = torch.zeros(
-                    self.ari.get_atom_features(1).shape[0], dtype=self.dtype
+                    self.ari.get_atom_features(1).shape[0]
+                    + len(self.atom_feature_calculator.properties),
+                    dtype=self.dtype,
                 )
                 node_features.append(default_feature)
 
@@ -98,7 +107,12 @@ class CrystalStructureGraphDataset(Dataset):
         edge_attr = torch.cat(edge_attrs, dim=1)
 
         # Create PyTorch Geometric Data object
-        data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_attr)
+        data = Data(
+            x=node_features,
+            edge_index=edge_index,
+            edge_attr=edge_attr,
+            batch=torch.zeros(node_features.size(0), dtype=torch.long),
+        )
 
         if self.target_property is not None:
             if self.target_property in item:

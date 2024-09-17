@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from pymatgen.analysis.bond_valence import BVAnalyzer
 from pymatgen.analysis.ewald import EwaldSummation
+from pymatgen.core.periodic_table import Element
 from scipy.constants import epsilon_0
 from pymatgen.core import Structure
 from csgnn.dataloaders.atom_init import atom_init
@@ -90,6 +91,45 @@ class AtomCustomJSONInitializer(AtomInitializer):
 
     def decode(self, idx: int) -> int:
         return self._decodedict[idx]
+
+
+class AtomFeatureCalculator:
+    def __init__(self):
+        self.properties = [
+            "atomic_number",
+            "electronegativity",
+            "atomic_radius",
+            "ionization_energy",
+            "electron_affinity",
+            "valence_electrons",
+        ]
+
+    def calculate_features(self, atomic_number):
+        element = Element.from_Z(atomic_number)
+        features = []
+
+        for prop in self.properties:
+            value = None
+            if prop == "atomic_number":
+                value = atomic_number
+            elif prop == "electronegativity":
+                value = element.X
+            elif prop == "atomic_radius":
+                value = element.atomic_radius
+            elif prop == "ionization_energy":
+                value = element.ionization_energy
+            elif prop == "electron_affinity":
+                value = element.electron_affinity
+            elif prop == "valence_electrons":
+                value = (
+                    element.common_oxidation_states[0]
+                    if element.common_oxidation_states
+                    else None
+                )
+
+            features.append(float(value) if value is not None else 0.0)
+
+        return torch.tensor(features, dtype=torch.float32)
 
 
 class GaussianDistanceCalculator:
