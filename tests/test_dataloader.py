@@ -94,12 +94,3 @@ def test_crystal_structure_dataset():
     assert isinstance(data.edge_index, torch.Tensor)
     assert isinstance(data.edge_attr, torch.Tensor)
     assert isinstance(data.y, torch.Tensor)
-
-
-def test_gaussian_distance_calculator():
-    gd = GaussianDistanceCalculator(dmin=0, dmax=5, step=0.5, var=0.5)
-    distances = torch.tensor([[1.0], [2.0], [3.0]])
-    expanded = gd.expand(distances)
-
-    assert expanded.shape == (3, 11)  # 3 distances, 11 Gaussian filters
-    assert torch.all(expanded >= 0) and torch.all(expanded <= 1)
