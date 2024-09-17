@@ -83,8 +83,7 @@ def test_crystal_structure_dataset():
 
     dataset = CrystalStructureGraphDataset(
         tmp_path,
-        energy_calculator=energy_calculator,
-        gaussian_distance_calculator=gaussian_calculator,
+        calculators=[energy_calculator, gaussian_calculator],
         target_property="target_property",
     )
 

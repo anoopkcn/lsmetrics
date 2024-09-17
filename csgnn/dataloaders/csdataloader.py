@@ -15,8 +15,7 @@ class CrystalStructureGraphDataset(Dataset):
     def __init__(
         self,
         json_file,
-        energy_calculator,
-        gaussian_distance_calculator=None,
+        calculators=None,
         max_num_nbr=12,
         radius=8,
         target_property=None,
@@ -25,8 +24,19 @@ class CrystalStructureGraphDataset(Dataset):
         self.max_num_nbr, self.radius = max_num_nbr, radius
         self.ari = AtomCustomJSONInitializer()
         self.target_property = target_property
-        self.energy_calculator = energy_calculator
-        self.gaussian_distance_calculator = gaussian_distance_calculator
+        self.dtype = torch.float32
+
+        # Set up calculators
+        self.gaussian_calculator = GaussianDistanceCalculator(
+            dmin=0, dmax=radius, step=0.2
+        )
+        if calculators is None:
+            self.calculators = [self.gaussian_calculator]
+        elif isinstance(calculators, list):
+            self.calculators = calculators
+        else:
+            self.calculators = [calculators]
+
         if not os.path.isfile(json_file):
             raise FileNotFoundError(f"The JSON file '{json_file}' does not exist.")
         with open(json_file, "r") as f:
@@ -48,10 +58,12 @@ class CrystalStructureGraphDataset(Dataset):
                 node_features.append(self.ari.get_atom_features(atom_number))
             else:
                 print(f"Warning: Invalid atom number for atom: {atom}")
-                default_feature = torch.zeros(self.ari.get_atom_features(1).shape[0])
+                default_feature = torch.zeros(
+                    self.ari.get_atom_features(1).shape[0], dtype=self.dtype
+                )
                 node_features.append(default_feature)
 
-        node_features = torch.stack(node_features)
+        node_features = torch.stack(node_features).to(self.dtype)
 
         all_nbrs = structure.get_all_neighbors(self.radius, include_index=True)
         all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]
@@ -75,24 +87,26 @@ class CrystalStructureGraphDataset(Dataset):
                 distances.append(neighbor[1])
 
         edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
-        distances = torch.tensor(distances, dtype=torch.float).unsqueeze(1)
+        distances = torch.tensor(distances, dtype=self.dtype).unsqueeze(1)
 
-        # Calculate energies using the provided energy calculator
-        energies = self.energy_calculator.calculate_pairwise(structure, edge_index)
+        # Calculate edge attributes using all provided calculators
+        edge_attrs = []
+        for calculator in self.calculators:
+            if isinstance(calculator, GaussianDistanceCalculator):
+                edge_attr = calculator.expand(distances)
+            else:
+                edge_attr = calculator.calculate_pairwise(structure, edge_index)
+            edge_attrs.append(edge_attr.to(self.dtype))
 
-        # Determine edge attributes based on the presence of Gaussian distance calculator
-        if self.gaussian_distance_calculator:
-            expanded_distances = self.gaussian_distance_calculator.expand(distances)
-            edge_attr = torch.cat([expanded_distances, energies], dim=1)
-        else:
-            edge_attr = energies
+        # Concatenate all edge attributes
+        edge_attr = torch.cat(edge_attrs, dim=1)
 
         # Create PyTorch Geometric Data object
         data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_attr)
 
         if self.target_property is not None:
             if self.target_property in item:
-                target = torch.tensor([item[self.target_property]], dtype=torch.float)
+                target = torch.tensor([item[self.target_property]], dtype=self.dtype)
                 data.y = target
             else:
                 warnings.warn(
