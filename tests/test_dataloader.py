@@ -1,18 +1,13 @@
 import pytest
 import torch
-from csgnn.dataloaders.utils import GaussianDistance
-from csgnn.dataloaders import (
-    GaussianDistanceGraphDataset,
-    SimpleCoulombGraphDataset,
-    AdvancedCrystalGraphDataset,
-)
+import tempfile
+import json
+from csgnn.dataloaders.csdataloader import CrystalStructureGraphDataset
+from csgnn.dataloaders.utils import GaussianDistanceCalculator, EwaldSummationCalculator
 
 
 def test_crystal_structure_dataset():
     # Create a small test JSON file
-    import json
-    import tempfile
-
     test_data = [
         {
             "material_id": "test1",
@@ -82,19 +77,28 @@ def test_crystal_structure_dataset():
         json.dump(test_data, tmp)
         tmp_path = tmp.name
 
-    dataset = GaussianDistanceGraphDataset(tmp_path, target_property="target_property")
+    # Initialize required calculators
+    energy_calculator = EwaldSummationCalculator()
+    gaussian_calculator = GaussianDistanceCalculator(dmin=0, dmax=5, step=0.5, var=0.5)
+
+    dataset = CrystalStructureGraphDataset(
+        tmp_path,
+        energy_calculator=energy_calculator,
+        gaussian_distance_calculator=gaussian_calculator,
+        target_property="target_property",
+    )
 
     assert len(dataset) == 1
 
-    data = dataset[0]
+    data = dataset.get(0)
     assert isinstance(data.x, torch.Tensor)
     assert isinstance(data.edge_index, torch.Tensor)
     assert isinstance(data.edge_attr, torch.Tensor)
     assert isinstance(data.y, torch.Tensor)
 
 
-def test_gaussian_distance():
-    gd = GaussianDistance(dmin=0, dmax=5, step=0.5, var=0.5)
+def test_gaussian_distance_calculator():
+    gd = GaussianDistanceCalculator(dmin=0, dmax=5, step=0.5, var=0.5)
     distances = torch.tensor([[1.0], [2.0], [3.0]])
     expanded = gd.expand(distances)
 
