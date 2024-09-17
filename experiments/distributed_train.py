@@ -16,6 +16,7 @@ from csgnn.dataloaders.utils import (
     TruncatedCoulombCalculator,
     RBFCalculator,
     GaussianDistanceCalculator,
+    CosineSimilarityCalculator,
 )
 from csgnn.dataloaders import CrystalStructureGraphDataset
 
@@ -56,7 +57,9 @@ def main(
     # Create checkpoint directory if it doesn't exist
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    calculator = RBFCalculator()
+    calculator1 = RBFCalculator()
+    calculator2 = CosineSimilarityCalculator()
+
     # calculator = TruncatedCoulombCalculator(cutoff_radius=10.0)
     # calculator = GaussianDistanceCalculator(0, 10, 0.02)
 
@@ -64,7 +67,7 @@ def main(
         datafile,
         radius=10,
         target_property="band_gap",
-        calculators=[calculator],
+        calculators=[calculator1, calculator2],
         # expand=True,
     )
 
