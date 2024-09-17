@@ -83,13 +83,21 @@ class CSGCNN(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         y_hat = self.predict_property(batch)
         loss = F.l1_loss(y_hat, batch.y.view(-1))
-        self.log("train_loss", loss, batch_size=batch.num_graphs, prog_bar=True)
+        self.log(
+            "train_loss",
+            loss,
+            batch_size=batch.num_graphs,
+            prog_bar=True,
+            sync_dist=True,
+        )
         return loss
 
     def validation_step(self, batch, batch_idx):
         y_hat = self.predict_property(batch)
         loss = F.l1_loss(y_hat, batch.y.view(-1))
-        self.log("val_loss", loss, batch_size=batch.num_graphs, prog_bar=True)
+        self.log(
+            "val_loss", loss, batch_size=batch.num_graphs, prog_bar=True, sync_dist=True
+        )
 
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         optimizer = Adam(self.parameters(), lr=self.learning_rate, weight_decay=1e-5)
