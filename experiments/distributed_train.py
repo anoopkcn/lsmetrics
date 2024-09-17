@@ -10,12 +10,10 @@ from torch_geometric.loader import DataLoader
 from sklearn.model_selection import train_test_split
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.strategies import DDPStrategy
 
-from csgnn.dataloaders import (
-    GaussianDistanceGraphDataset,
-    SimpleCoulombGraphDataset,
-    AdvancedCrystalGraphDataset,
-)
+from csgnn.dataloaders.utils import TruncatedCoulombCalculator
+from csgnn.dataloaders import CrystalStructureGraphDataset
 
 from csgnn.model import get_model, get_available_models
 from csgnn.utils.checkpoint import load_checkpoint
@@ -46,14 +44,19 @@ def main(
     test_size=0.2,
     random_state=42,
     num_workers=4,
+    num_nodes=1,
+    node_rank=0,
 ):
     # Create checkpoint directory if it doesn't exist
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    full_dataset = AdvancedCrystalGraphDataset(
+    coulomb_calculator = TruncatedCoulombCalculator(cutoff_radius=10.0)
+
+    full_dataset = CrystalStructureGraphDataset(
         datafile,
         radius=10,
         target_property="band_gap",
+        energy_calculator=coulomb_calculator,
     )
 
     train_indices, test_indices = train_test_split(
@@ -132,9 +135,10 @@ def main(
 
     trainer = pl.Trainer(
         max_epochs=num_epochs,
-        accelerator="auto",
+        accelerator="gpu",
         devices="auto",
-        strategy="auto",
+        num_nodes=num_nodes,
+        strategy=DDPStrategy(find_unused_parameters=False),
         callbacks=[checkpoint_callback],
         log_every_n_steps=10,
     )
@@ -175,6 +179,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_workers", type=int, default=4, help="Number of workers for dataloader"
     )
+    parser.add_argument(
+        "--num_nodes", type=int, default=1, help="Number of nodes to use"
+    )
+    parser.add_argument("--node_rank", type=int, default=0, help="Rank of this node")
 
     args = parser.parse_args()
 
@@ -191,6 +199,8 @@ if __name__ == "__main__":
         test_size=args.test_size,
         random_state=args.random_state,
         num_workers=args.num_workers,
+        num_nodes=args.num_nodes,
+        node_rank=args.node_rank,
     )
 
-# Example usage: python train.py --datafile path/to/data --num_epochs 200 --lr 0.01 --model CSGCNN --batch_size 64 --hidden_channels 256 --num_layers 4 --checkpoint_dir my_checkpoints --test_size 0.15 --random_state 123 --num_workers 8
+# Example usage: python train.py --datafile path/to/data --num_epochs 200 --lr 0.01 --model CSGCNN --batch_size 64 --hidden_channels 256 --num_layers 4 --checkpoint_dir my_checkpoints --test_size 0.15 --random_state 123 --num_workers 8 --num_nodes 2 --node_rank 0
