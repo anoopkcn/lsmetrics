@@ -1,1 +1,1 @@
-from csgnn.dataloaders.csdataloader import CrystalStructureGraphDataset
+from csgnn.data.dataloader import CrystalStructureGraphDataset

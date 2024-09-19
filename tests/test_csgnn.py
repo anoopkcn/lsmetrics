@@ -74,7 +74,7 @@ def test_csgcnn_predict_property():
     batch = Batch.from_data_list([data])
 
     # Test predict_property method
-    prediction = model.predict_property(batch)
+    prediction = model.regression(batch)
     assert prediction.shape == torch.Size([1])  # (batch_size,)
 
 

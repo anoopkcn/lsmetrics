@@ -4,12 +4,12 @@ import torch
 import warnings
 from torch_geometric.data import Dataset, Data
 from pymatgen.core import Structure
-from csgnn.dataloaders.utils import (
+from csgnn.data.utils import (
     GaussianDistanceCalculator,
     EwaldSummationCalculator,
     AtomCustomJSONInitializer,
 )
-from csgnn.dataloaders.utils import AtomFeatureExtension
+from csgnn.data.utils import AtomFeatureExtension
 
 
 class CrystalStructureGraphDataset(Dataset):

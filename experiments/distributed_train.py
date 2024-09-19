@@ -12,7 +12,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.strategies import DDPStrategy
 
-from csgnn.dataloaders.utils import (
+from csgnn.data.utils import (
     TruncatedCoulombCalculator,
     RBFCalculator,
     GaussianDistanceCalculator,
@@ -20,7 +20,7 @@ from csgnn.dataloaders.utils import (
     onehot_encode_atom,
     atom_to_bit_features,
 )
-from csgnn.dataloaders import CrystalStructureGraphDataset
+from csgnn.data import CrystalStructureGraphDataset
 
 from csgnn.model import get_model, get_available_models
 from csgnn.utils.checkpoint import load_checkpoint
@@ -69,7 +69,7 @@ def main(
     full_dataset = CrystalStructureGraphDataset(
         datafile,
         calculators=[calculator0],
-        atom_initializer=atom_to_bit_features,
+        # atom_initializer=onehot_encode_atom,
         radius=10,
         target_property="band_gap",
     )
@@ -131,7 +131,6 @@ def main(
             hidden_channels=hidden_channels,
             num_layers=num_layers,
             learning_rate=lr,
-            edge_embedding_dim=edge_embedding_dim,
         )
     else:
         model = model_class(
@@ -140,7 +139,6 @@ def main(
             hidden_channels=hidden_channels,
             num_layers=num_layers,
             learning_rate=lr,
-            edge_embedding_dim=edge_embedding_dim,
         )
 
     checkpoint_callback = ModelCheckpoint(
