@@ -12,4 +12,4 @@ def get_model(model_name):
 
 def get_available_models():
     # This list should be updated when new models are added
-    return ["CSGCNN", "CSGANN"]
+    return ["CSGCNN", "CSGANN", "CSGINN"]

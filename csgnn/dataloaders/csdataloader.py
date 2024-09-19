@@ -9,7 +9,7 @@ from csgnn.dataloaders.utils import (
     EwaldSummationCalculator,
     AtomCustomJSONInitializer,
 )
-from csgnn.dataloaders.utils import AtomFeatureCalculator
+from csgnn.dataloaders.utils import AtomFeatureExtension
 
 
 class CrystalStructureGraphDataset(Dataset):
@@ -17,14 +17,14 @@ class CrystalStructureGraphDataset(Dataset):
         self,
         json_file,
         calculators=None,
+        atom_initializer=None,
         max_num_nbr=12,
         radius=8,
         target_property=None,
     ):
         super().__init__()
         self.max_num_nbr, self.radius = max_num_nbr, radius
-        self.ari = AtomCustomJSONInitializer()
-        self.atom_feature_calculator = AtomFeatureCalculator()
+        self.atom_initializer = atom_initializer or AtomCustomJSONInitializer()
         self.target_property = target_property
         self.dtype = torch.float32
 
@@ -51,22 +51,26 @@ class CrystalStructureGraphDataset(Dataset):
         cif_id = item["material_id"]
         structure = Structure.from_dict(item["crystal_structure"])
 
-        # Extract node features (e.g., atomic numbers)
+        # Extract node features using the atom initializer
         node_features = []
         for atom in structure:
             atom_number = atom.specie.number
             if atom_number is not None and isinstance(atom_number, int):
-                basic_features = self.ari.get_atom_features(atom_number)
-                extended_features = self.atom_feature_calculator.calculate_features(
-                    atom_number
-                )
-                combined_features = torch.cat([basic_features, extended_features])
-                node_features.append(combined_features)
+                if isinstance(self.atom_initializer, AtomCustomJSONInitializer):
+                    basic_features = self.atom_initializer.get_atom_features(
+                        atom_number
+                    )
+                else:
+                    basic_features = self.atom_initializer(atom_number)
+                node_features.append(basic_features)
             else:
                 print(f"Warning: Invalid atom number for atom: {atom}")
+                if isinstance(self.atom_initializer, AtomCustomJSONInitializer):
+                    feature_shape = self.atom_initializer.get_atom_features(1).shape[0]
+                else:
+                    feature_shape = self.atom_initializer(1).shape[0]
                 default_feature = torch.zeros(
-                    self.ari.get_atom_features(1).shape[0]
-                    + len(self.atom_feature_calculator.properties),
+                    feature_shape,
                     dtype=self.dtype,
                 )
                 node_features.append(default_feature)

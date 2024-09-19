@@ -7,21 +7,34 @@ from torch_geometric.nn import GATConv
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from pytorch_lightning.utilities.types import OptimizerLRSchedulerConfig
+from typing import Optional
 
 
 class CSGCNN(pl.LightningModule):
     def __init__(
         self,
-        num_node_features,
-        num_edge_features,
-        hidden_channels,
-        num_layers,
-        learning_rate=0.01,
-        pretrained_path=None,
+        num_node_features: int,
+        num_edge_features: int,
+        hidden_channels: int,
+        num_layers: int,
+        learning_rate: float = 0.01,
+        pretrained_path: Optional[str] = None,
+        edge_embedding_dim: Optional[int] = None,
     ):
         super().__init__()
         self.learning_rate = learning_rate
         self.num_layers = num_layers
+        self.use_edge_embedding = edge_embedding_dim is not None
+
+        # Edge embedding layer (optional)
+        self.edge_embedding: Optional[nn.Linear] = None
+        self.conv_edge_dim: int = num_edge_features
+
+        if self.use_edge_embedding and edge_embedding_dim is not None:
+            self.edge_embedding = nn.Linear(
+                num_edge_features, edge_embedding_dim, dtype=torch.float32
+            )
+            self.conv_edge_dim = edge_embedding_dim
 
         # Initial node embedding
         self.node_embedding = nn.Linear(
@@ -33,7 +46,7 @@ class CSGCNN(pl.LightningModule):
         self.batch_norms = nn.ModuleList()
         for _ in range(num_layers):
             self.convs.append(
-                CGConv(hidden_channels, num_edge_features, bias=True).to(torch.float32)
+                CGConv(hidden_channels, self.conv_edge_dim, bias=True).to(torch.float32)
             )
             self.batch_norms.append(
                 nn.BatchNorm1d(
@@ -57,6 +70,10 @@ class CSGCNN(pl.LightningModule):
             data.edge_attr.float(),
             data.batch,
         )
+
+        # Apply edge embedding if enabled
+        if self.use_edge_embedding and self.edge_embedding is not None:
+            edge_attr = self.edge_embedding(edge_attr)
 
         # Initial node embedding
         x = self.node_embedding(x)

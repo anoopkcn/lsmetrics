@@ -6,8 +6,53 @@ from pymatgen.core.periodic_table import Element
 from scipy.constants import epsilon_0
 from pymatgen.core import Structure
 from csgnn.dataloaders.atom_init import atom_init
-import torch
 from typing import Dict, Set, Mapping, Any
+
+
+def onehot_encode_atom(atomic_number: int, max_atomic_number: int = 96) -> torch.Tensor:
+    """
+    One-hot encodes an atom based on its atomic number.
+
+    Args:
+        atomic_number (int): The atomic number of the atom.
+        max_atomic_number (int): The maximum atomic number to consider (default is 118).
+
+    Returns:
+        torch.Tensor: A one-hot encoded tensor representing the atom.
+    """
+    encoding = torch.zeros(max_atomic_number, dtype=torch.float32)
+    if 1 <= atomic_number <= max_atomic_number:
+        encoding[atomic_number - 1] = 1.0
+    return encoding
+
+
+def atom_to_bit_features(
+    atomic_number: int, max_atomic_number: int = 96
+) -> torch.Tensor:
+    """
+    Converts an atom's atomic number to a bit representation and returns it as features.
+
+    Args:
+        atomic_number (int): The atomic number of the atom.
+        max_atomic_number (int): The maximum atomic number to consider (default is 96).
+
+    Returns:
+        torch.Tensor: A tensor representing the atom's features in bit representation.
+    """
+    if atomic_number < 1 or atomic_number > max_atomic_number:
+        return torch.zeros(max_atomic_number, dtype=torch.float32)
+
+    # Convert to binary representation
+    binary = format(atomic_number, f"0{max_atomic_number}b")
+
+    # Convert binary string to list of integers
+    bit_list = [int(bit) for bit in binary]
+
+    # Pad with zeros if necessary
+    bit_list = [0] * (max_atomic_number - len(bit_list)) + bit_list
+
+    # Convert to tensor
+    return torch.tensor(bit_list, dtype=torch.float32)
 
 
 class AtomInitializer(object):
@@ -93,7 +138,7 @@ class AtomCustomJSONInitializer(AtomInitializer):
         return self._decodedict[idx]
 
 
-class AtomFeatureCalculator:
+class AtomFeatureExtension:
     def __init__(self):
         self.properties = [
             "atomic_number",

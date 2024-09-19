@@ -17,6 +17,8 @@ from csgnn.dataloaders.utils import (
     RBFCalculator,
     GaussianDistanceCalculator,
     CosineSimilarityCalculator,
+    onehot_encode_atom,
+    atom_to_bit_features,
 )
 from csgnn.dataloaders import CrystalStructureGraphDataset
 
@@ -46,6 +48,7 @@ def main(
     resume=None,
     batch_size=32,
     hidden_channels=128,
+    edge_embedding_dim=None,
     num_layers=3,
     checkpoint_dir="checkpoints",
     test_size=0.2,
@@ -57,18 +60,18 @@ def main(
     # Create checkpoint directory if it doesn't exist
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    calculator1 = RBFCalculator()
-    calculator2 = CosineSimilarityCalculator()
-
-    # calculator = TruncatedCoulombCalculator(cutoff_radius=10.0)
-    # calculator = GaussianDistanceCalculator(0, 10, 0.02)
+    calculator0 = GaussianDistanceCalculator(0, 10, 0.02)
+    # calculator1 = RBFCalculator()
+    # calculator2 = CosineSimilarityCalculator()
+    # calculator3 = TruncatedCoulombCalculator(cutoff_radius=10.0)
+    # calculator4 = GaussianDistanceCalculator(0, 10, 0.02)
 
     full_dataset = CrystalStructureGraphDataset(
         datafile,
+        calculators=[calculator0],
+        atom_initializer=atom_to_bit_features,
         radius=10,
         target_property="band_gap",
-        calculators=[calculator1, calculator2],
-        # expand=True,
     )
 
     train_indices, test_indices = train_test_split(
@@ -128,6 +131,7 @@ def main(
             hidden_channels=hidden_channels,
             num_layers=num_layers,
             learning_rate=lr,
+            edge_embedding_dim=edge_embedding_dim,
         )
     else:
         model = model_class(
@@ -136,6 +140,7 @@ def main(
             hidden_channels=hidden_channels,
             num_layers=num_layers,
             learning_rate=lr,
+            edge_embedding_dim=edge_embedding_dim,
         )
 
     checkpoint_callback = ModelCheckpoint(
@@ -182,6 +187,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--hidden_channels", type=int, default=128, help="Hidden channels"
     )
+    parser.add_argument(
+        "--edge_embedding_dim", type=int, default=None, help="Edge embedding dimension"
+    )
     parser.add_argument("--num_layers", type=int, default=3, help="Number of layers")
     parser.add_argument(
         "--checkpoint_dir", type=str, default="checkpoints", help="Checkpoint directory"
@@ -206,6 +214,7 @@ if __name__ == "__main__":
         resume=args.resume,
         batch_size=args.batch_size,
         hidden_channels=args.hidden_channels,
+        edge_embedding_dim=args.edge_embedding_dim,
         num_layers=args.num_layers,
         checkpoint_dir=args.checkpoint_dir,
         test_size=args.test_size,

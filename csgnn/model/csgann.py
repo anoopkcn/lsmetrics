@@ -75,7 +75,7 @@ class CSGANN(pl.LightningModule):
             x = self.linear1(graph_embedding)
             x = F.elu(x)
             x = self.dropout(x)
-            property_prediction = self.linear2(x).view(-1)
+            property_prediction = self.linear2(x).squeeze()
             return property_prediction
         else:
             raise ValueError("Invalid mode. Use 'encoder' or 'regression'.")
@@ -87,6 +87,8 @@ class CSGANN(pl.LightningModule):
         return self.forward(data, mode="regression")
 
     def custom_loss(self, y_pred, y_true):
+        y_pred = y_pred.view(-1)
+        y_true = y_true.view(-1)
         mse_loss = F.mse_loss(y_pred, y_true)
         l1_loss = F.l1_loss(y_pred, y_true)
         huber_loss = F.smooth_l1_loss(y_pred, y_true)
@@ -95,6 +97,9 @@ class CSGANN(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         y_hat = self.predict_property(batch)
         y_true = batch.y.float().view(-1)
+
+        y_hat = y_hat.view(-1)
+        y_true = y_true.view(-1)
 
         loss = self.custom_loss(y_hat, y_true)
         mae = F.l1_loss(y_hat, y_true)
@@ -116,6 +121,9 @@ class CSGANN(pl.LightningModule):
         y_hat = self.predict_property(batch)
         y_true = batch.y.float().view(-1)
 
+        y_hat = y_hat.view(-1)
+        y_true = y_true.view(-1)
+
         loss = self.custom_loss(y_hat, y_true)
         mae = F.l1_loss(y_hat, y_true)
 
@@ -129,6 +137,9 @@ class CSGANN(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         y_hat = self.predict_property(batch)
         y_true = batch.y.float().view(-1)
+
+        y_hat = y_hat.view(-1)
+        y_true = y_true.view(-1)
 
         mae = F.l1_loss(y_hat, y_true)
 

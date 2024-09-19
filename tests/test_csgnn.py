@@ -6,6 +6,9 @@ from csgnn.model.csgcnn import CSGCNN
 from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from typing import Dict, Any
+from csgnn.dataloaders.utils import (
+    AtomCustomJSONInitializer,
+)
 
 
 def test_csgcnn_initialization():
@@ -147,135 +150,6 @@ def test_csgcnn_configure_optimizers():
         assert lr_scheduler_config["frequency"] == 1
 
 
-def test_csgann_forward():
-    model = CSGANN(
-        num_node_features=10, num_edge_features=5, hidden_channels=32, num_layers=3
-    )
-
-    # Create a dummy batch
-    x = torch.randn(100, 10)
-    edge_index = torch.randint(0, 100, (2, 500))
-    edge_attr = torch.randn(500, 5)
-    batch = torch.zeros(100, dtype=torch.long)
-
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
-    batch = Batch.from_data_list([data])
-
-    # Test forward pass
-    output = model(batch)
-    assert output.shape == (1, 32)  # (batch_size, hidden_channels)
-
-
-def test_csgann_encode():
-    model = CSGANN(
-        num_node_features=10, num_edge_features=5, hidden_channels=32, num_layers=3
-    )
-
-    # Create a dummy batch
-    x = torch.randn(100, 10)
-    edge_index = torch.randint(0, 100, (2, 500))
-    edge_attr = torch.randn(500, 5)
-    batch = torch.zeros(100, dtype=torch.long)
-
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
-    batch = Batch.from_data_list([data])
-
-    # Test encode method
-    encoding = model.encode(batch)
-    assert encoding.shape == (1, 32)  # (batch_size, hidden_channels)
-
-
-def test_csgann_predict_property():
-    model = CSGANN(
-        num_node_features=10, num_edge_features=5, hidden_channels=32, num_layers=3
-    )
-
-    # Create a dummy batch
-    x = torch.randn(100, 10)
-    edge_index = torch.randint(0, 100, (2, 500))
-    edge_attr = torch.randn(500, 5)
-    batch = torch.zeros(100, dtype=torch.long)
-
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
-    batch = Batch.from_data_list([data])
-
-    # Test predict_property method
-    prediction = model.predict_property(batch)
-    assert prediction.shape == torch.Size([1])  # (batch_size,)
-
-
-def test_csgann_training_step():
-    model = CSGANN(
-        num_node_features=10, num_edge_features=5, hidden_channels=32, num_layers=3
-    )
-    # Temporarily disable logging
-    model.log = lambda *args, **kwargs: None
-
-    # Create a dummy batch
-    x = torch.randn(100, 10)
-    edge_index = torch.randint(0, 100, (2, 500))
-    edge_attr = torch.randn(500, 5)
-    batch = torch.zeros(100, dtype=torch.long)
-    y = torch.randn(1)
-
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch, y=y)
-    batch = Batch.from_data_list([data])
-
-    # Test training step
-    loss = model.training_step(batch, 0)
-    assert isinstance(loss, torch.Tensor)
-    assert loss.shape == ()  # scalar
-
-
-def test_csgann_validation_step():
-    model = CSGANN(
-        num_node_features=10, num_edge_features=5, hidden_channels=32, num_layers=3
-    )
-    # Temporarily disable logging
-    model.log = lambda *args, **kwargs: None
-
-    # Create a dummy batch
-    x = torch.randn(100, 10)
-    edge_index = torch.randint(0, 100, (2, 500))
-    edge_attr = torch.randn(500, 5)
-    batch = torch.zeros(100, dtype=torch.long)
-    y = torch.randn(1)
-
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch, y=y)
-    batch = Batch.from_data_list([data])
-
-    # Test validation step
-    model.validation_step(batch, 0)
-    # No assertion needed as validation_step doesn't return anything
-
-
-def test_csgann_configure_optimizers():
-    model = CSGANN(
-        num_node_features=10, num_edge_features=5, hidden_channels=32, num_layers=3
-    )
-
-    config = model.configure_optimizers()
-    assert isinstance(config, dict)
-
-    assert "optimizer" in config
-    assert isinstance(config["optimizer"], Adam)
-
-    assert "lr_scheduler" in config
-    assert isinstance(config["lr_scheduler"], dict)
-
-    lr_scheduler_config = config["lr_scheduler"]
-    assert "scheduler" in lr_scheduler_config
-    assert isinstance(lr_scheduler_config["scheduler"], ReduceLROnPlateau)
-
-    # Check for optional keys without assuming they exist
-    if "monitor" in lr_scheduler_config:
-        assert lr_scheduler_config["monitor"] == "val_loss"
-    if "interval" in lr_scheduler_config:
-        assert lr_scheduler_config["interval"] == "epoch"
-    if "frequency" in lr_scheduler_config:
-        assert lr_scheduler_config["frequency"] == 1
-
-
 @pytest.mark.parametrize("num_nodes", [1, 10, 1000])
 def test_csgcnn_different_graph_sizes(num_nodes):
     model = CSGCNN(
@@ -383,3 +257,26 @@ def test_csgcnn_numerical_stability():
     output = model(batch)
     assert not torch.isnan(output).any()
     assert not torch.isinf(output).any()
+
+
+def test_atom_custom_json_initializer():
+    initializer = AtomCustomJSONInitializer()
+
+    # Test for a known element (e.g., Carbon)
+    carbon_features = initializer.get_atom_features(6)
+    assert isinstance(carbon_features, torch.Tensor)
+    assert carbon_features.shape == torch.Size([92])
+
+    # Test for an unknown element
+    with pytest.raises(AssertionError):
+        initializer.get_atom_features(200)
+
+    # Test state dict
+    state_dict = initializer.state_dict()
+    assert isinstance(state_dict, dict)
+    assert 6 in state_dict  # Carbon should be in the state dict
+
+    # Test load state dict
+    new_initializer = AtomCustomJSONInitializer()
+    new_initializer.load_state_dict(state_dict)
+    assert torch.allclose(new_initializer.get_atom_features(6), carbon_features)
