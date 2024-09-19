@@ -2,7 +2,7 @@ import pytest
 import torch
 import numpy as np
 from pymatgen.core import Structure, Lattice
-from csgnn.dataloaders.utils import (
+from csgnn.data.utils import (
     EwaldSummationCalculator,
     AtomInitializer,
     AtomCustomJSONInitializer,

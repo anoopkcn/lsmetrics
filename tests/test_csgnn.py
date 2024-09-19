@@ -6,7 +6,7 @@ from csgnn.model.csgcnn import CSGCNN
 from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from typing import Dict, Any
-from csgnn.dataloaders.utils import (
+from csgnn.data.utils import (
     AtomCustomJSONInitializer,
 )
 

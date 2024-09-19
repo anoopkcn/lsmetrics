@@ -5,7 +5,7 @@ from pymatgen.analysis.ewald import EwaldSummation
 from pymatgen.core.periodic_table import Element
 from scipy.constants import epsilon_0
 from pymatgen.core import Structure
-from csgnn.dataloaders.atom_init import atom_init
+from csgnn.data.atom_init import atom_init
 from typing import Dict, Set, Mapping, Any
 
 
