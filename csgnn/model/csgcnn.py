@@ -133,6 +133,7 @@ class CSGCNN(pl.LightningModule):
         self.log(
             "val_mae", mae, batch_size=batch.num_graphs, prog_bar=True, sync_dist=True
         )
+        return loss
 
     def test_step(self, batch, batch_idx):
         y_hat = self.regression(batch)

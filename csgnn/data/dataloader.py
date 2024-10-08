@@ -4,12 +4,13 @@ import torch
 import warnings
 from torch_geometric.data import Dataset, Data
 from pymatgen.core import Structure
-from csgnn.data.utils import (
+from csgnn.data.node_features import (
+    generate_site_species_vector,
+)
+from csgnn.data.edge_features import (
     GaussianDistanceCalculator,
     EwaldSummationCalculator,
-    AtomCustomJSONInitializer,
 )
-from csgnn.data.utils import AtomFeatureExtension
 
 
 class CrystalStructureGraphDataset(Dataset):
@@ -24,7 +25,7 @@ class CrystalStructureGraphDataset(Dataset):
     ):
         super().__init__()
         self.max_num_nbr, self.radius = max_num_nbr, radius
-        self.atom_initializer = atom_initializer or AtomCustomJSONInitializer()
+        self.atom_initializer = atom_initializer
         self.target_property = target_property
         self.dtype = torch.float32
 
@@ -52,30 +53,10 @@ class CrystalStructureGraphDataset(Dataset):
         structure = Structure.from_dict(item["crystal_structure"])
 
         # Extract node features using the atom initializer
-        node_features = []
-        for atom in structure:
-            atom_number = atom.specie.number
-            if atom_number is not None and isinstance(atom_number, int):
-                if isinstance(self.atom_initializer, AtomCustomJSONInitializer):
-                    basic_features = self.atom_initializer.get_atom_features(
-                        atom_number
-                    )
-                else:
-                    basic_features = self.atom_initializer(atom_number)
-                node_features.append(basic_features)
-            else:
-                print(f"Warning: Invalid atom number for atom: {atom}")
-                if isinstance(self.atom_initializer, AtomCustomJSONInitializer):
-                    feature_shape = self.atom_initializer.get_atom_features(1).shape[0]
-                else:
-                    feature_shape = self.atom_initializer(1).shape[0]
-                default_feature = torch.zeros(
-                    feature_shape,
-                    dtype=self.dtype,
-                )
-                node_features.append(default_feature)
-
-        node_features = torch.stack(node_features).to(self.dtype)
+        if self.atom_initializer:
+            node_features = self.atom_initializer(structure)
+        else:
+            node_features = generate_site_species_vector(structure, 96)
 
         all_nbrs = structure.get_all_neighbors(self.radius, include_index=True)
         all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]

@@ -12,19 +12,21 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.strategies import DDPStrategy
 
-from csgnn.data.utils import (
+from csgnn.data.edge_features import (
     TruncatedCoulombCalculator,
     RBFCalculator,
     GaussianDistanceCalculator,
+    WeightedGaussianDistanceCalculator,
+    PeriodicWeightedGaussianCalculator,
+    AtomSpecificGaussianCalculator,
     CosineSimilarityCalculator,
-    onehot_encode_atom,
-    atom_to_bit_features,
+    ScreenedCoulombCalculator,
 )
-from csgnn.data import CrystalStructureGraphDataset
 
+from csgnn.data.node_features import atom_custom_json_initializer
+from csgnn.data import CrystalStructureGraphDataset
 from csgnn.model import get_model, get_available_models
 from csgnn.utils.checkpoint import load_checkpoint
-
 from torch.utils.data import Subset as TorchSubset
 from torch_geometric.data import Dataset as PyGDataset
 
@@ -48,7 +50,6 @@ def main(
     resume=None,
     batch_size=32,
     hidden_channels=128,
-    edge_embedding_dim=None,
     num_layers=3,
     checkpoint_dir="checkpoints",
     test_size=0.2,
@@ -60,17 +61,11 @@ def main(
     # Create checkpoint directory if it doesn't exist
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    calculator0 = GaussianDistanceCalculator(0, 10, 0.02)
-    # calculator1 = RBFCalculator()
-    # calculator2 = CosineSimilarityCalculator()
-    # calculator3 = TruncatedCoulombCalculator(cutoff_radius=10.0)
-    # calculator4 = GaussianDistanceCalculator(0, 10, 0.02)
-
     full_dataset = CrystalStructureGraphDataset(
         datafile,
-        calculators=[calculator0],
-        # atom_initializer=onehot_encode_atom,
-        radius=10,
+        # calculators=[RBFCalculator()],
+        # atom_initializer=atom_custom_json_initializer,
+        radius=8,
         target_property="band_gap",
     )
 
@@ -94,6 +89,23 @@ def main(
         num_workers=num_workers,
         persistent_workers=True,
     )
+
+    # print("\nChecking first batch from val_loader:")
+    # try:
+    #     first_batch = next(iter(val_loader))
+    #     print("First batch type:", type(first_batch))
+    #     print("First batch content:", first_batch)
+    #     if hasattr(first_batch, "x"):
+    #         print("first_batch.x type:", type(first_batch.x))
+    #         print("first_batch.x content:", first_batch.x)
+    #     else:
+    #         print("first_batch has no 'x' attribute")
+    # except Exception as e:
+    #     print(f"Exception when checking val_loader: {str(e)}")
+    #     print(f"Exception type: {type(e)}")
+    #     import traceback
+
+    #     traceback.print_exc()
 
     # Print diagnostic information
     print(f"Dataset length: {len(full_dataset)}")
@@ -181,12 +193,9 @@ if __name__ == "__main__":
         default="CSGCNN",
         help="Model type to use",
     )
-    parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
     parser.add_argument(
         "--hidden_channels", type=int, default=128, help="Hidden channels"
-    )
-    parser.add_argument(
-        "--edge_embedding_dim", type=int, default=None, help="Edge embedding dimension"
     )
     parser.add_argument("--num_layers", type=int, default=3, help="Number of layers")
     parser.add_argument(
@@ -212,7 +221,6 @@ if __name__ == "__main__":
         resume=args.resume,
         batch_size=args.batch_size,
         hidden_channels=args.hidden_channels,
-        edge_embedding_dim=args.edge_embedding_dim,
         num_layers=args.num_layers,
         checkpoint_dir=args.checkpoint_dir,
         test_size=args.test_size,

@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "csgnn"
-version = "0.1.0"
-description = "Crystal Structure Graph Neural Network"
+name = "atlas"
+version = "0.1.1"
+description = "Atomic Latent Signature"
 authors = ["Anoop K. Chandran <anoopkcn@gmail.com>"]
 readme = "README.md"
 

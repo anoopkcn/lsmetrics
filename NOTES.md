@@ -14,67 +14,50 @@
   - This modification adds one more hyperparameter to the model but it is optional.
 - I implemented attention mechanism and isomorphism in the model, but both these improvements doesn't seem to improve the model performance.
 
-## TODOS
-1. Add global features: Include global features of the crystal structure, such as lattice parameters or symmetry information.
-
-2. Use a multi-task learning approach: If you have multiple related properties to predict, consider modifying your model to predict them simultaneously.
-
-
 ## TRAINING TABLE
 local dataset = `perovskites_halide.json` 1200 samples
-In all cases a weighted loss fuction is used(`0.4*mse_loss+0.4*l1+0.2*huber_loss`)
+In all cases a MAE fuction is used as the loss function.
 *trainable features
 
 | Model | Edge feature Calculator | Node Feature Calculator | MAE |
 |:-------|:-----|:------| ----:|
-| CSGCNN | GaussianDistanceCalculator | AtomCustomJSONInitializer* | 0.218 |
-| CSGCNN | RBFCalculator | AtomCustomJSONInitializer*  | 0.231 |
-| CSGCNN | GaussianDistanceCalculator | onehot_encode_atom*  | 0.230 |
-| CSGCNN | GaussianDistanceCalculator | atom_to_bit_features*  | 0.281 |
+| **CSGCNN** | GaussianDistanceCalculator | AtomCustomJSONInitializer* | 0.22 |
+| CSGCNN | RBFCalculator | AtomCustomJSONInitializer*  | 0.22 |
+| CSGCNN | GaussianDistanceCalculator | onehot_encode_atom*  | 0.27 |
+| CSGCNN | GaussianDistanceCalculator | atom_to_bit_features*  | 0.28 |
+| CSGCNN | WeightedGaussianDistanceCalculator | AtomCustomJSONInitializer*  | 0.26 |
+| CSGCNN | AtomSpecificGaussianCalculator | AtomCustomJSONInitializer*  | 0.19 |
+| FlowGNN | GaussianDistanceCalculator | AtomCustomJSONInitializer*  | 0.28 |
+| FlowGNN | PeriodicWeightedGaussianCalculator | AtomCustomJSONInitializer*  | 0.30 |
+| FlowGNN | AtomSpecificGaussianCalculator | AtomCustomJSONInitializer*  | 0.331 |
 
-local dataset = `perovskites_10k.json` 10,000 samples
+
+local dataset = `inorganic_SUNMAT_10k.json` 10,000 samples
 
 | Model | Edge feature Calculator | Node Feature Calculator | MAE |
 |:-------|:-----|:------| ----:|
-| CSGCNN | GaussianDistanceCalculator | AtomCustomJSONInitializer* | 0.44 |
+| **CGCNN(ref)** | GaussianDistanceCalculator | AtomCustomJSONInitializer* | 0.50 |
+| **CSGCNN** | GaussianDistanceCalculator | AtomCustomJSONInitializer* | 0.44 |
 | CSGANN | GaussianDistanceCalculator | AtomCustomJSONInitializer* | 0.70 |
 | CSGINN | GaussianDistanceCalculator | AtomCustomJSONInitializer* | 0.63 |
+| CSGCNN | WeightedGaussianDistanceCalculator | AtomCustomJSONInitializer* | 0.47 |
+| FlowGNN | GaussianDistanceCalculator | AtomCustomJSONInitializer* | 0.495 |
 
 Other pooling methods like attention based Set2Set Pooling doesnt improve the model performance.
+
+## TODOS
+- [ ] Add global features: Include global features of the crystal structure, such as lattice parameters or symmetry information.
+- [ ] Use a multi-task learning approach: If you have multiple related properties to predict, consider modifying your model to predict them simultaneously.
+- [ ] Gaussian regularization: Add a Gaussian regularization term to the loss function to encourage the model to learn smooth functions. Kullback-Leibler divergence can be used to measure the difference between the predicted distribution and a Gaussian distribution.
+
+
 ## Extra
 
-When to use:
-- Complex graph structures where simple averaging might lose important relational information.
-- Tasks requiring a richer graph representation that captures global context.
+Some recent studies have shown promising results for flow-based models in materials science:
 
-8. Use data augmentation:
-  Implement data augmentation techniques specific to crystal structures, such as random rotations or translations.
+- Köhler et al. (2022) introduced "Equivariant Flows," which outperformed previous methods in modeling atomic systems and predicting material properties.
+- Shi et al. (2021) proposed a flow-based model for crystal structure generation that showed competitive performance with state-of-the-art methods.
 
-2. Implement residual connections:
-    Add skip connections to allow information to flow more easily through the network.
+However, transformer-based models have also shown strong performance:
 
-```python
-class ResidualBlock(nn.Module):
-    def __init__(self, conv, bn):
-        super().__init__()
-        self.conv = conv
-        self.bn = bn
-
-    def forward(self, x, edge_index, edge_attr):
-        residual = x
-        x = self.conv(x, edge_index, edge_attr)
-        x = F.relu(x)
-        x = self.bn(x)
-        return x + residual
-
-# In the CSGCNN class:
-self.res_blocks = nn.ModuleList()
-for _ in range(num_layers):
-    conv = GraphConv(hidden_channels, hidden_channels)
-    bn = nn.BatchNorm1d(hidden_channels, track_running_stats=False)
-    self.res_blocks.append(ResidualBlock(conv, bn))
-
-# In the forward method:
-for res_block in self.res_blocks:
-    x = res_block(x, edge_index, edge_attr)
-```
+- Xie et al. (2021) introduced "Crystal Transformer" for crystal property prediction, showing competitive results with graph neural networks.
