@@ -4,10 +4,10 @@ import torch
 import warnings
 from torch_geometric.data import Dataset, Data
 from pymatgen.core import Structure
-from csgnn.data.node_features import (
+from atlas.data.node_features import (
     generate_site_species_vector,
 )
-from csgnn.data.edge_features import (
+from atlas.data.edge_features import (
     GaussianDistanceCalculator,
     EwaldSummationCalculator,
 )

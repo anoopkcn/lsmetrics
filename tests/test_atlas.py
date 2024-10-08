@@ -1,13 +1,13 @@
 import pytest
 import torch
 from torch_geometric.data import Data, Batch
-from csgnn.model.csgann import CSGANN
-from csgnn.model.csgcnn import CSGCNN
+from atlas.model.csgann import CSGANN
+from atlas.model.csgcnn import CSGCNN
 from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from typing import Dict, Any
-from csgnn.data.utils import (
-    AtomCustomJSONInitializer,
+from atlas.data.node_features import (
+    atom_custom_json_initializer,
 )
 
 
@@ -257,26 +257,3 @@ def test_csgcnn_numerical_stability():
     output = model(batch)
     assert not torch.isnan(output).any()
     assert not torch.isinf(output).any()
-
-
-def test_atom_custom_json_initializer():
-    initializer = AtomCustomJSONInitializer()
-
-    # Test for a known element (e.g., Carbon)
-    carbon_features = initializer.get_atom_features(6)
-    assert isinstance(carbon_features, torch.Tensor)
-    assert carbon_features.shape == torch.Size([92])
-
-    # Test for an unknown element
-    with pytest.raises(AssertionError):
-        initializer.get_atom_features(200)
-
-    # Test state dict
-    state_dict = initializer.state_dict()
-    assert isinstance(state_dict, dict)
-    assert 6 in state_dict  # Carbon should be in the state dict
-
-    # Test load state dict
-    new_initializer = AtomCustomJSONInitializer()
-    new_initializer.load_state_dict(state_dict)
-    assert torch.allclose(new_initializer.get_atom_features(6), carbon_features)

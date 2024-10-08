@@ -2,8 +2,11 @@ import pytest
 import torch
 import tempfile
 import json
-from csgnn.data.dataloader import CrystalStructureGraphDataset
-from csgnn.data.utils import GaussianDistanceCalculator, EwaldSummationCalculator
+from atlas.data.dataloader import CrystalStructureGraphDataset
+from atlas.data.edge_features import (
+    GaussianDistanceCalculator,
+    EwaldSummationCalculator,
+)
 
 
 def test_crystal_structure_dataset():

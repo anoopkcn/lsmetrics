@@ -1,1 +1,1 @@
-# Crystal Structure Graph Neural Network
+# **At**omic **Lat**ent **S**ignatures - **atlas**

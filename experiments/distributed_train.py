@@ -11,8 +11,10 @@ from sklearn.model_selection import train_test_split
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.strategies import DDPStrategy
+from torch.utils.data import Subset as TorchSubset
+from torch_geometric.data import Dataset as PyGDataset
 
-from csgnn.data.edge_features import (
+from atlas.data.edge_features import (
     TruncatedCoulombCalculator,
     RBFCalculator,
     GaussianDistanceCalculator,
@@ -23,12 +25,11 @@ from csgnn.data.edge_features import (
     ScreenedCoulombCalculator,
 )
 
-from csgnn.data.node_features import atom_custom_json_initializer
-from csgnn.data import CrystalStructureGraphDataset
-from csgnn.model import get_model, get_available_models
-from csgnn.utils.checkpoint import load_checkpoint
-from torch.utils.data import Subset as TorchSubset
-from torch_geometric.data import Dataset as PyGDataset
+from atlas.data.node_features import atom_custom_json_initializer
+from atlas.data.dataloader import CrystalStructureGraphDataset
+from atlas.model import get_model, get_available_models
+from atlas.utils.checkpoint import load_checkpoint
+
 
 torch.set_default_dtype(torch.float32)
 

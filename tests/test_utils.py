@@ -2,10 +2,8 @@ import pytest
 import torch
 import numpy as np
 from pymatgen.core import Structure, Lattice
-from csgnn.data.utils import (
+from atlas.data.edge_features import (
     EwaldSummationCalculator,
-    AtomInitializer,
-    AtomCustomJSONInitializer,
     GaussianDistanceCalculator,
     TruncatedCoulombCalculator,
     ScreenedCoulombCalculator,
@@ -139,28 +137,6 @@ def test_ewald_summation_calculator_edge_cases():
     edge_index = torch.tensor([], dtype=torch.long).reshape(2, 0)
     pairwise_energies = calculator.calculate_pairwise(single_atom_structure, edge_index)
     assert pairwise_energies.shape == (0, 1)
-
-
-def test_atom_initializer():
-    atom_types = {1, 6, 8}
-    initializer = AtomInitializer(atom_types)
-
-    embedding = {1: [1.0, 0.0, 0.0], 6: [0.0, 1.0, 0.0], 8: [0.0, 0.0, 1.0]}
-    initializer.load_state_dict(embedding)
-
-    assert torch.allclose(
-        initializer.get_atom_features(1), torch.tensor([1.0, 0.0, 0.0])
-    )
-    assert initializer.decode(1) == 6
-    assert initializer.state_dict() == embedding
-
-
-def test_atom_custom_json_initializer():
-    initializer = AtomCustomJSONInitializer()
-
-    assert 1 in initializer.atom_types
-    assert isinstance(initializer.get_atom_features(1), torch.Tensor)
-    assert initializer.decode(0) == 1
 
 
 def test_truncated_coulomb_calculator(simple_structure):

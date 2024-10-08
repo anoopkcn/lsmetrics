@@ -10,8 +10,8 @@ from .flow import GNFlow
 
 def get_model(model_name: str) -> Type:
     for module_name in [
-        "csgnn.model",
-        "csgnn.model.custom",
+        "atlas.model",
+        "atlas.model.custom",
     ]:  # Add more module paths if needed
         try:
             module = importlib.import_module(module_name)
@@ -27,8 +27,8 @@ def get_model(model_name: str) -> Type:
 def get_available_models():
     models = []
     for module_name in [
-        "csgnn.model",
-        "csgnn.model.custom",
+        "atlas.model",
+        "atlas.model.custom",
     ]:  # Add more module paths if needed
         try:
             module = importlib.import_module(module_name)
