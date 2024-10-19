@@ -4,8 +4,8 @@ from torch.optim.adam import Adam
 import torch.nn.functional as F
 from torch_geometric.nn import CGConv, global_mean_pool
 import pytorch_lightning as pl
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from pytorch_lightning.utilities.types import OptimizerLRSchedulerConfig
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from typing import Optional
 
 

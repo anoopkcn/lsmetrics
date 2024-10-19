@@ -1,35 +1,16 @@
-import os
 import argparse
-from tqdm import tqdm
-import torch
-import torch.nn as nn
-from torch.utils.data import Subset
-from torch.utils.data import Dataset
-from torch.optim.adam import Adam
-from torch_geometric.loader import DataLoader
-from sklearn.model_selection import train_test_split
+import os
+
 import pytorch_lightning as pl
+import torch
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.strategies import DDPStrategy
+from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset as TorchSubset
 from torch_geometric.data import Dataset as PyGDataset
+from torch_geometric.loader import DataLoader
 
-from atlas.data.edge_features import (
-    TruncatedCoulombCalculator,
-    RBFCalculator,
-    GaussianDistanceCalculator,
-    WeightedGaussianDistanceCalculator,
-    PeriodicWeightedGaussianCalculator,
-    AtomSpecificGaussianCalculator,
-    CosineSimilarityCalculator,
-    ScreenedCoulombCalculator,
-)
-
-from atlas.data.node_features import atom_custom_json_initializer
 from atlas.data.dataloader import CrystalStructureGraphDataset
-from atlas.model import get_model, get_available_models
-from atlas.utils.checkpoint import load_checkpoint
-
+from atlas.model import get_available_models, get_model
 
 torch.set_default_dtype(torch.float32)
 

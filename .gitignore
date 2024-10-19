@@ -181,3 +181,5 @@ experiments/lightning_logs*/
 poetry.lock
 .zed/
 experiments/*.sh
+.python-version
+*.lock

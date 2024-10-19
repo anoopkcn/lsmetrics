@@ -1,6 +1,6 @@
 import os
+
 from pymatgen.io.vasp import Poscar
-from pymatgen.core import Structure
 
 
 def convert_poscar_to_cif(from_file):
