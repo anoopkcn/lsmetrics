@@ -2,11 +2,9 @@ import numpy as np
 import torch
 from pymatgen.analysis.bond_valence import BVAnalyzer
 from pymatgen.analysis.ewald import EwaldSummation
+from pymatgen.core import Structure
 from pymatgen.core.periodic_table import Element
 from scipy.constants import epsilon_0
-from pymatgen.core import Structure
-from atlas.data.atom_init import atom_init
-from typing import Dict, Set, Mapping, Any
 
 
 class GaussianDistanceCalculator:
