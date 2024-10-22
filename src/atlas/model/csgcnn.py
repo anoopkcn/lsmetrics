@@ -53,7 +53,7 @@ class CSGCNN(pl.LightningModule):
         if pretrained_path:
             self.load_pretrained(pretrained_path)
 
-    def forward(self, data, mode="regression"):
+    def forward(self, data, mode="encoder"):
         x, edge_index, edge_attr, batch = (
             data.x.float(),
             data.edge_index,
