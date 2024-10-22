@@ -1,12 +1,13 @@
+from typing import Optional
+
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from torch.optim.adam import Adam
 import torch.nn.functional as F
-from torch_geometric.nn import CGConv, global_mean_pool
-import pytorch_lightning as pl
 from pytorch_lightning.utilities.types import OptimizerLRSchedulerConfig
+from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from typing import Optional
+from torch_geometric.nn import CGConv, global_mean_pool
 
 
 class CSGCNN(pl.LightningModule):
@@ -22,10 +23,11 @@ class CSGCNN(pl.LightningModule):
         super().__init__()
         self.num_layers = num_layers
         self.learning_rate = learning_rate
+        self._dtype = torch.bfloat16
 
         # Initial node embedding
         self.node_embedding = nn.Linear(
-            num_node_features, hidden_channels, dtype=torch.float32
+            num_node_features, hidden_channels, dtype=self._dtype
         )
 
         # CGConv layers
@@ -33,19 +35,19 @@ class CSGCNN(pl.LightningModule):
         self.batch_norms = nn.ModuleList()
         for _ in range(self.num_layers):
             self.convs.append(
-                CGConv(hidden_channels, num_edge_features, bias=True).to(torch.float32)
+                CGConv(hidden_channels, num_edge_features, bias=True).to(self._dtype)
             )
             self.batch_norms.append(
                 nn.BatchNorm1d(
-                    hidden_channels, track_running_stats=False, dtype=torch.float32
+                    hidden_channels, track_running_stats=False, dtype=self.float32
                 )
             )
 
         # Output layers
         self.output_layer = nn.Sequential(
-            nn.Linear(hidden_channels, hidden_channels, dtype=torch.float32),
+            nn.Linear(hidden_channels, hidden_channels, dtype=self._dtype),
             nn.ReLU(),
-            nn.Linear(hidden_channels, 1, dtype=torch.float32),
+            nn.Linear(hidden_channels, 1, dtype=self._dtype),
         )
 
         if pretrained_path:
