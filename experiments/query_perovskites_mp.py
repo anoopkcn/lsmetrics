@@ -1,4 +1,5 @@
 # see https://docs.materialsproject.org/downloading-data/using-the-api/examples for example queries
+# type: ignore
 import json
 import os
 
