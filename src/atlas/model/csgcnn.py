@@ -44,7 +44,7 @@ class CSGCNN(pl.LightningModule):
             )
 
         # Output layers
-        self.output_layer = nn.Sequential(
+        self.regression_head = nn.Sequential(
             nn.Linear(hidden_channels, hidden_channels, dtype=self._dtype),
             nn.ReLU(),
             nn.Linear(hidden_channels, 1, dtype=self._dtype),
@@ -77,7 +77,7 @@ class CSGCNN(pl.LightningModule):
         if mode == "encoder":
             return graph_embedding
         elif mode == "regression":
-            return self.output_layer(graph_embedding).view(-1)
+            return self.regression_head(graph_embedding).view(-1)
         else:
             raise ValueError("Invalid mode. Use 'encoder' or 'regression'.")
 
