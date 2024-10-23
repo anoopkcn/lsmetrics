@@ -1,15 +1,16 @@
-import os
 import json
-import torch
+import os
 import warnings
-from torch_geometric.data import Dataset, Data
+
+import torch
 from pymatgen.core import Structure
-from atlas.data.node_features import (
-    generate_site_species_vector,
-)
+from torch_geometric.data import Data, Dataset
+
 from atlas.data.edge_features import (
     GaussianDistanceCalculator,
-    EwaldSummationCalculator,
+)
+from atlas.data.node_features import (
+    generate_site_species_vector,
 )
 
 
