@@ -19,6 +19,7 @@ class CSGCNN(pl.LightningModule):
         num_layers: int,
         learning_rate: float = 0.01,
         pretrained_path: Optional[str] = None,
+        contrastive_weight: float = 0.5,
     ):
         super().__init__()
         self.num_layers = num_layers
@@ -50,6 +51,14 @@ class CSGCNN(pl.LightningModule):
             nn.Linear(hidden_channels, 1, dtype=self._dtype),
         )
 
+        self.projection_head = nn.Sequential(
+            nn.Linear(hidden_channels, hidden_channels, dtype=self._dtype),
+            nn.ReLU(),
+            nn.Linear(hidden_channels, hidden_channels, dtype=self._dtype),
+        )
+
+        self.contrastive_weight = contrastive_weight
+
         if pretrained_path:
             self.load_pretrained(pretrained_path)
 
@@ -76,16 +85,40 @@ class CSGCNN(pl.LightningModule):
 
         if mode == "encoder":
             return graph_embedding
+        elif mode == "projection":
+            return self.projection_head(graph_embedding)
         elif mode == "regression":
             return self.regression_head(graph_embedding).view(-1)
         else:
-            raise ValueError("Invalid mode. Use 'encoder' or 'regression'.")
+            raise ValueError(
+                "Invalid mode. Use 'encoder', 'projection', or 'regression'."
+            )
 
     def encode(self, data):
         return self.forward(data, mode="encoder")
 
+    def projection(self, data):
+        return self.forward(data, mode="projection")
+
     def regression(self, data):
         return self.forward(data, mode="regression")
+
+    def contrastive_loss(self, z1, z2, temperature=0.5):
+        z1 = F.normalize(z1, dim=1)
+        z2 = F.normalize(z2, dim=1)
+        N = z1.shape[0]
+        z = torch.cat([z1, z2], dim=0)
+        sim = torch.mm(z, z.T) / temperature
+        sim_i_j = torch.diag(sim, N)
+        sim_j_i = torch.diag(sim, -N)
+        positive_samples = torch.cat([sim_i_j, sim_j_i], dim=0).reshape(N, 2)
+        negative_samples = sim[
+            torch.logical_not(torch.eye(2 * N, dtype=torch.bool))
+        ].reshape(2 * N, -1)
+        labels = torch.zeros(N, dtype=torch.long).to(positive_samples.device)
+        logits = torch.cat([positive_samples, negative_samples], dim=1)
+        loss = F.cross_entropy(logits, labels)
+        return loss
 
     def custom_loss(self, y_pred, y_true):
         # Your custom loss function
