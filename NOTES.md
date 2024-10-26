@@ -61,3 +61,25 @@ Some recent studies have shown promising results for flow-based models in materi
 However, transformer-based models have also shown strong performance:
 
 - Xie et al. (2021) introduced "Crystal Transformer" for crystal property prediction, showing competitive results with graph neural networks.
+
+## Contrastive Learning Metrics:
+```python
+def calculate_alignment_uniformity(encoder, dataloader):
+    alignments = []
+    uniformity = []
+
+    for anchor, positive in dataloader:
+        # Calculate alignment (similarity between positive pairs)
+        anchor_enc = encoder(anchor)
+        positive_enc = encoder(positive)
+        alignment = F.cosine_similarity(anchor_enc, positive_enc).mean()
+        alignments.append(alignment.item())
+
+        # Calculate uniformity (distribution of features)
+        uniformity.append(torch.pdist(anchor_enc).mean().item())
+
+    return {
+        'alignment': np.mean(alignments),
+        'uniformity': np.mean(uniformity)
+    }
+```
