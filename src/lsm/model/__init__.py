@@ -1,11 +1,12 @@
 import importlib
 import inspect
 from typing import Type
+
 from .csgann import CSGANN
 from .csgcnn import CSGCNN
 from .csgcnn_vae import CSGCNN_VAE
-from .flowgnn import FlowGNN
 from .flow import GNFlow
+from .flowgnn import FlowGNN
 
 
 def get_model(model_name: str) -> Type:

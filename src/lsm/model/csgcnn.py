@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from loguru import logger
 from pytorch_lightning.utilities.types import OptimizerLRSchedulerConfig
 from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -40,7 +41,7 @@ class CSGCNN(pl.LightningModule):
             )
             self.batch_norms.append(
                 nn.BatchNorm1d(
-                    hidden_channels, track_running_stats=False, dtype=self.float32
+                    hidden_channels, track_running_stats=False, dtype=torch.float32
                 )
             )
 
@@ -64,9 +65,9 @@ class CSGCNN(pl.LightningModule):
 
     def forward(self, data, mode="encoder"):
         x, edge_index, edge_attr, batch = (
-            data.x.float(),
+            data.x.to(torch.bfloat16),
             data.edge_index,
-            data.edge_attr.float(),
+            data.edge_attr.to(torch.bfloat16),
             data.batch,
         )
 
@@ -129,7 +130,7 @@ class CSGCNN(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         y_hat = self.regression(batch)
-        y_true = batch.y.float().view(-1)
+        y_true = batch.y.view(-1)
 
         # Calculate custom loss for training
         loss = self.custom_loss(y_hat, y_true)
@@ -153,7 +154,7 @@ class CSGCNN(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         y_hat = self.regression(batch)
-        y_true = batch.y.float().view(-1)
+        y_true = batch.y.view(-1)
 
         # Calculate custom loss
         loss = self.custom_loss(y_hat, y_true)
@@ -172,7 +173,7 @@ class CSGCNN(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         y_hat = self.regression(batch)
-        y_true = batch.y.float().view(-1)
+        y_true = batch.y.view(-1)
 
         # Calculate MAE for final evaluation
         mae = F.l1_loss(y_hat, y_true)
@@ -194,16 +195,24 @@ class CSGCNN(pl.LightningModule):
             },
         }
 
-    def load_pretrained(self, pretrained_path):
+    def from_pretrained(self, ckpt_path, remove_head: bool = True):
         """
         Load pretrained weights from a file.
         """
-        if not pretrained_path:
+        if not ckpt_path:
             return
 
         try:
             # Load the state dict
-            state_dict = torch.load(pretrained_path, map_location=self.device)
+            state_dict = torch.load(ckpt_path, weights_only=True)
+
+            # remove the output layer if needed
+            if remove_head:
+                state_dict = {
+                    k: v
+                    for k, v in state_dict.items()
+                    if not k.startswith("output_layer")
+                }
 
             # If it's a checkpoint file, extract just the model state dict
             if isinstance(state_dict, dict) and "state_dict" in state_dict:
@@ -211,9 +220,9 @@ class CSGCNN(pl.LightningModule):
 
             # Load the state dict, allowing for missing or unexpected keys
             self.load_state_dict(state_dict, strict=False)
-            print(f"Loaded pretrained model from {pretrained_path}")
+            logger.info(f"Loaded pretrained model from {ckpt_path}")
         except Exception as e:
-            print(f"Error loading pretrained model: {str(e)}")
+            logger.info(f"Error loading pretrained model: {e!s}")
 
     def freeze_encoder(self):
         """
@@ -227,16 +236,3 @@ class CSGCNN(pl.LightningModule):
         for bn in self.batch_norms:
             for param in bn.parameters():
                 param.requires_grad = False
-
-    def unfreeze_encoder(self):
-        """
-        Unfreeze the encoder part of the model.
-        """
-        for param in self.node_embedding.parameters():
-            param.requires_grad = True
-        for conv in self.convs:
-            for param in conv.parameters():
-                param.requires_grad = True
-        for bn in self.batch_norms:
-            for param in bn.parameters():
-                param.requires_grad = True
