@@ -183,3 +183,4 @@ poetry.lock
 experiments/*.sh
 .python-version
 *.lock
+notes/
