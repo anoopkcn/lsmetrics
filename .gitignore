@@ -184,3 +184,4 @@ experiments/*.sh
 .python-version
 *.lock
 notes/
+*.ckpt
