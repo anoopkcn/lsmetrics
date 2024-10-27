@@ -6,10 +6,10 @@ import torch
 from pymatgen.core import Structure
 from torch_geometric.data import Data, Dataset
 
-from atlas.data.edge_features import (
+from lsm.data.edge_features import (
     GaussianDistanceCalculator,
 )
-from atlas.data.node_features import (
+from lsm.data.node_features import (
     generate_site_species_vector,
 )
 

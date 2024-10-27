@@ -2,8 +2,8 @@ import pytest
 import torch
 import tempfile
 import json
-from atlas.data.dataloader import CrystalStructureGraphDataset
-from atlas.data.edge_features import (
+from lsm.data.dataloader import CrystalStructureGraphDataset
+from lsm.data.edge_features import (
     GaussianDistanceCalculator,
     EwaldSummationCalculator,
 )
