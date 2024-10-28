@@ -1,15 +1,16 @@
 import torch
 from typing import Dict, Optional
 
+
 class LatentSpaceMetrics:
+    def __init__(self):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     @staticmethod
-    def local_smoothness(
-        embeddings: torch.Tensor,
-        k: int = 5
-    ) -> Dict[str, float]:
+    def local_smoothness(embeddings: torch.Tensor, k: int = 5) -> Dict[str, float]:
         """Calculate local smoothness metrics"""
         distances = torch.cdist(embeddings, embeddings)
-        _, indices = torch.topk(distances, k=k+1, dim=1, largest=False)
+        _, indices = torch.topk(distances, k=k + 1, dim=1, largest=False)
 
         local_variations = []
         for i in range(len(embeddings)):
@@ -25,15 +26,14 @@ class LatentSpaceMetrics:
             local_variations = local_variations.detach()
 
         return {
-            'local_smoothness_mean': local_variations.mean().item(),
-            'local_smoothness_std': local_variations.std().item(),
-            'local_smoothness_max': local_variations.max().item(),
+            "local_smoothness_mean": local_variations.mean().item(),
+            "local_smoothness_std": local_variations.std().item(),
+            "local_smoothness_max": local_variations.max().item(),
         }
 
     @staticmethod
     def global_structure(
-        embeddings: torch.Tensor,
-        original_distances: Optional[torch.Tensor] = None
+        embeddings: torch.Tensor, original_distances: Optional[torch.Tensor] = None
     ) -> Dict[str, float]:
         """Calculate global structure preservation metrics"""
         latent_distances = torch.cdist(embeddings, embeddings)
@@ -44,24 +44,23 @@ class LatentSpaceMetrics:
 
             distance_correlation = torch.corrcoef(
                 torch.stack([orig_norm.flatten(), latent_norm.flatten()])
-            )[0,1].item()
+            )[0, 1].item()
         else:
             distance_correlation = None
 
         return {
-            'distance_correlation': float(distance_correlation) if distance_correlation is not None else 0.0,
-            'mean_pairwise_distance': latent_distances.mean().item(),
-            'std_pairwise_distance': latent_distances.std().item(),
+            "distance_correlation": float(distance_correlation)
+            if distance_correlation is not None
+            else 0.0,
+            "mean_pairwise_distance": latent_distances.mean().item(),
+            "std_pairwise_distance": latent_distances.std().item(),
         }
 
     @staticmethod
-    def manifold_quality(
-        embeddings: torch.Tensor,
-        k: int = 5
-    ) -> Dict[str, float]:
+    def manifold_quality(embeddings: torch.Tensor, k: int = 5) -> Dict[str, float]:
         """Calculate manifold quality metrics"""
-        distances = torch.cdist(embeddings, embeddings) # l2-norm of each pair
-        _, indices = torch.topk(distances, k=k+1, dim=1, largest=False)
+        distances = torch.cdist(embeddings, embeddings)  # l2-norm of each pair
+        _, indices = torch.topk(distances, k=k + 1, dim=1, largest=False)
 
         condition_numbers = []
         linearity_scores = []
@@ -84,10 +83,10 @@ class LatentSpaceMetrics:
         linearity_scores = torch.stack(linearity_scores)
 
         return {
-            'condition_number_mean': condition_numbers.mean().item(),
-            'condition_number_std': condition_numbers.std().item(),
-            'local_linearity_mean': linearity_scores.mean().item(),
-            'local_linearity_std': linearity_scores.std().item(),
+            "condition_number_mean(ER)": condition_numbers.mean().item(),
+            "condition_number_std": condition_numbers.std().item(),
+            "local_linearity_mean": linearity_scores.mean().item(),
+            "local_linearity_std": linearity_scores.std().item(),
         }
 
     @staticmethod
@@ -98,15 +97,13 @@ class LatentSpaceMetrics:
         eigenvalues = torch.linalg.eigvalsh(cov)
 
         return {
-            'isotropy': (eigenvalues.min() / eigenvalues.max()).item(),
-            'eigenvalue_ratio': (eigenvalues[-1] / eigenvalues[0]).item(),
+            "isotropy": (eigenvalues.min() / eigenvalues.max()).item(),
+            "eigenvalue_ratio": (eigenvalues[-1] / eigenvalues[0]).item(),
         }
 
     @staticmethod
     def interpolation_smoothness(
-        z1: torch.Tensor,
-        z2: torch.Tensor,
-        steps: int = 50
+        z1: torch.Tensor, z2: torch.Tensor, steps: int = 50
     ) -> Dict[str, float]:
         """Measure smoothness of interpolation between points"""
         interpolations = []
@@ -118,13 +115,14 @@ class LatentSpaceMetrics:
         dists = torch.norm(interpolations[1:] - interpolations[:-1], dim=1)
 
         return {
-            'interp_variance': torch.var(dists).item(),
-            'interp_max_jump': torch.max(dists).item(),
-            'interp_mean_dist': torch.mean(dists).item(),
+            "interp_variance": torch.var(dists).item(),
+            "interp_max_jump": torch.max(dists).item(),
+            "interp_mean_dist": torch.mean(dists).item(),
         }
 
-    @staticmethod
-    def eee(embeddings: torch.Tensor, explained_var_threshold: float = 0.9) -> Dict[str, float]:
+    def eee(
+        self, embeddings: torch.Tensor, explained_var_threshold: float = 0.9
+    ) -> Dict[str, float]:
         """
         Calculate Early Eigenvalue Enrichment (EEE)
 
@@ -138,6 +136,8 @@ class LatentSpaceMetrics:
         Returns:
             Dictionary containing EEE score
         """
+        embeddings = embeddings.to(self.device)
+
         # Center the embeddings
         centered = embeddings - embeddings.mean(dim=0)
 
@@ -160,12 +160,11 @@ class LatentSpaceMetrics:
         eee_score = 1 - (n_components / dimension)
 
         return {
-            'eee_score': eee_score.item(),
-            'n_components_threshold': n_components.item()
+            "eee_score": eee_score.item(),
+            "n_components_threshold": n_components.item(),
         }
 
-    @staticmethod
-    def vrm(embeddings: torch.Tensor, n_bins: int = 50) -> Dict[str, float]:
+    def vrm(self, embeddings: torch.Tensor, n_bins: int = 50) -> Dict[str, float]:
         """
         Calculate Vasicek Ratio MSE (VRM)
 
@@ -179,6 +178,9 @@ class LatentSpaceMetrics:
         Returns:
             Dictionary containing VRM score
         """
+
+        embeddings = embeddings.to(self.device)
+
         def vasicek_entropy(x: torch.Tensor, m: int) -> float:
             n = len(x)
             x_sorted = torch.sort(x)[0]
@@ -199,15 +201,18 @@ class LatentSpaceMetrics:
         var_entropy = entropies.var()
 
         # Calculate VRM score (ratio of variance to mean)
-        vrm_score = var_entropy / (mean_entropy + 1e-10)  # Add small constant to prevent division by zero
+        vrm_score = var_entropy / (
+            mean_entropy + 1e-10
+        )  # Add small constant to prevent division by zero
 
         return {
-            'vrm_score': vrm_score.item(),
-            'mean_entropy': mean_entropy.item(),
-            'entropy_variance': var_entropy.item()
+            "vrm_score": vrm_score.item(),
+            "mean_entropy": mean_entropy.item(),
+            "entropy_variance": var_entropy.item(),
         }
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Example usage
     metrics = LatentSpaceMetrics()
     embeddings = torch.randn(100, 32)  # Example embeddings

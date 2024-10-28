@@ -203,8 +203,8 @@ class CSGCNN(pl.LightningModule):
             return
 
         try:
-            # Load the state dict
-            state_dict = torch.load(ckpt_path, weights_only=True)
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            state_dict = torch.load(ckpt_path, weights_only=True, map_location=device)
 
             # remove the output layer if needed
             if remove_head:
