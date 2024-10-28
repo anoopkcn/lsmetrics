@@ -83,8 +83,8 @@ if __name__ == "__main__":
     from torch.utils.data import Subset as TorchSubset
     from torch_geometric.data import Dataset as PyGDataset
 
-    from lsm.data.dataloader import CrystalStructureGraphDataset
-    from lsm.model.csgcnn import CSGCNN
+    from lsmetrics.data.dataloader import CrystalStructureGraphDataset
+    from lsmetrics.model.csgcnn import CSGCNN
 
     class CustomSubset(TorchSubset, PyGDataset):
         def __init__(self, dataset, indices):

@@ -2,7 +2,7 @@ import pytest
 import torch
 import numpy as np
 from pymatgen.core import Structure, Lattice
-from lsm.data.edge_features import (
+from lsmetrics.data.edge_features import (
     EwaldSummationCalculator,
     GaussianDistanceCalculator,
     TruncatedCoulombCalculator,

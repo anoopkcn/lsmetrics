@@ -1,12 +1,12 @@
 import pytest
 import torch
 from torch_geometric.data import Data, Batch
-from lsm.model.csgann import CSGANN
-from lsm.model.csgcnn import CSGCNN
+from lsmetrics.model.csgann import CSGANN
+from lsmetrics.model.csgcnn import CSGCNN
 from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from typing import Dict, Any
-from lsm.data.node_features import (
+from lsmetrics.data.node_features import (
     atom_custom_json_initializer,
 )
 

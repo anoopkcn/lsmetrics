@@ -6,10 +6,10 @@ import torch
 from pymatgen.core import Structure
 from torch_geometric.data import Data, Dataset
 
-from lsm.data.edge_features import (
+from lsmetrics.data.edge_features import (
     GaussianDistanceCalculator,
 )
-from lsm.data.node_features import (
+from lsmetrics.data.node_features import (
     generate_site_species_vector,
 )
 

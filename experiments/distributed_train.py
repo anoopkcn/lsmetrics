@@ -9,8 +9,8 @@ from torch.utils.data import Subset as TorchSubset
 from torch_geometric.data import Dataset as PyGDataset
 from torch_geometric.loader import DataLoader
 
-from lsm.data.dataloader import CrystalStructureGraphDataset
-from lsm.model import get_available_models, get_model
+from lsmetrics.data.dataloader import CrystalStructureGraphDataset
+from lsmetrics.model import get_available_models, get_model
 
 torch.set_default_dtype(torch.float32)
 

@@ -11,7 +11,7 @@ from pymatgen.core.periodic_table import (
 )
 from scipy.constants import epsilon_0
 from pymatgen.core import Structure, Composition
-from lsm.data.atom_init import atom_init
+from lsmetrics.data.atom_init import atom_init
 from typing import Dict, Set, Mapping, Any
 
 

@@ -1,6 +1,6 @@
 [project]
-name = "lsm"
-version = "0.1.0"
+name = "lsmetrics"
+version = "0.3.0"
 description = "Latent Space Metrics"
 readme = "README.md"
 requires-python = ">=3.10, <3.13"
@@ -24,4 +24,5 @@ dev-dependencies = [
     "mp-api>=0.42.2",
     "pytest>=8.3.3",
     "ruff>=0.6.9",
+    "seaborn>=0.13.2",
 ]
