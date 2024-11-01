@@ -6,12 +6,13 @@ from torch_geometric.loader import DataLoader
 from .metrics import LatentSpaceMetrics
 from .visualization import LatentSpaceVisualizer
 
+
 class LatentSpaceAnalyzer:
     def __init__(
         self,
         model: torch.nn.Module,
         encoder_function: Optional[Callable] = None,
-        device: str = "cuda" if torch.cuda.is_available() else "cpu"
+        device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         """
         Initialize the latent space analyzer.
@@ -27,7 +28,7 @@ class LatentSpaceAnalyzer:
         self.model.eval()
 
         if encoder_function is None:
-            if hasattr(model, 'encode'):
+            if hasattr(model, "encode"):
                 self.encoder_function = model.encode
             else:
                 self.encoder_function = model.forward
@@ -38,9 +39,7 @@ class LatentSpaceAnalyzer:
         self.visualizer = LatentSpaceVisualizer()
 
     def get_embeddings(
-        self,
-        dataloader: DataLoader,
-        max_samples: Optional[int] = None
+        self, dataloader: DataLoader, max_samples: Optional[int] = None
     ) -> torch.Tensor:
         """Get embeddings for data"""
         embeddings = []
@@ -93,10 +92,7 @@ class LatentSpaceAnalyzer:
         metrics = self.analyze_latent_space(dataloader, max_samples)
 
         return self.visualizer.create_summary_plot(
-            embeddings,
-            metrics,
-            labels,
-            save_path
+            embeddings, metrics, labels, save_path
         )
 
 

@@ -2,18 +2,20 @@ import os
 import torch
 from collections import OrderedDict
 
+
 def load_checkpoint(model, optimizer, filename):
     if os.path.isfile(filename):
         print(f"Loading checkpoint '{filename}'")
         checkpoint = torch.load(filename)
-        start_epoch = checkpoint['epoch']
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint["epoch"]
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         print(f"Loaded checkpoint '{filename}' (epoch {start_epoch})")
         return start_epoch
     else:
         print(f"No checkpoint found at '{filename}'")
         return 0
+
 
 def load_pretrained_encoder(encoder, pretrained_file, verbose=True):
     if os.path.exists(pretrained_file):

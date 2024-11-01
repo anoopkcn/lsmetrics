@@ -4,4 +4,4 @@ from .latent_analyzer import LatentSpaceAnalyzer
 from .metrics import LatentSpaceMetrics
 from .visualization import LatentSpaceVisualizer
 
-__all__ = ['LatentSpaceAnalyzer', 'LatentSpaceMetrics', 'LatentSpaceVisualizer']
+__all__ = ["LatentSpaceAnalyzer", "LatentSpaceMetrics", "LatentSpaceVisualizer"]

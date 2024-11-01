@@ -33,7 +33,8 @@ class LatentSpaceMetrics:
 
     @staticmethod
     def global_structure(
-        embeddings: torch.Tensor, original_distances: Optional[torch.Tensor] = None
+        embeddings: torch.Tensor,
+        original_distances: Optional[torch.Tensor] = None,
     ) -> Dict[str, float]:
         """Calculate global structure preservation metrics"""
         latent_distances = torch.cdist(embeddings, embeddings)
@@ -215,12 +216,30 @@ class LatentSpaceMetrics:
 if __name__ == "__main__":
     # Example usage
     metrics = LatentSpaceMetrics()
-    embeddings = torch.randn(100, 32)  # Example embeddings
+    # Create a mixture of delta functions at different points
+    points = [0, 2, 5, 10]  # Non-uniform spacing
+    probs = [0.4, 0.3, 0.2, 0.1]  # Non-uniform probabilities
+
+    choices = torch.tensor(points)[
+        torch.multinomial(torch.tensor(probs), num_samples=100 * 32, replacement=True)
+    ].reshape(100, 32)
+    embeddings_randn = choices.float()
 
     # Calculate EEE
-    eee_metrics = metrics.eee(embeddings)
+    eee_metrics = metrics.eee(embeddings_randn, explained_var_threshold=0.95)
     print("EEE metrics:", eee_metrics)
 
     # Calculate VRM
-    vrm_metrics = metrics.vrm(embeddings)
+    vrm_metrics = metrics.vrm(embeddings_randn, n_bins=4)
+    print("VRM metrics:", vrm_metrics)
+
+    metrics = LatentSpaceMetrics()
+    # Generate new gaussian embeddings
+    embeddings_normal = torch.normal(0, 1, size=(100, 32))
+
+    print("Normalized embeddings metrics:")
+    eee_metrics = metrics.eee(embeddings_normal, explained_var_threshold=0.95)
+    print("EEE metrics:", eee_metrics)
+
+    vrm_metrics = metrics.vrm(embeddings_normal, n_bins=40)
     print("VRM metrics:", vrm_metrics)
