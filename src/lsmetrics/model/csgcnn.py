@@ -19,6 +19,7 @@ class CSGCNN(pl.LightningModule):
         hidden_channels: int,
         num_layers: int,
         learning_rate: float = 0.01,
+        num_spectra_points: int = 100,
         pretrained_path: Optional[str] = None,
         contrastive_weight: float = 0.5,
     ):
@@ -58,6 +59,15 @@ class CSGCNN(pl.LightningModule):
             nn.Linear(hidden_channels, hidden_channels, dtype=self._dtype),
         )
 
+        self.spectral_head = nn.Sequential(
+            nn.Linear(hidden_channels, hidden_channels, dtype=self._dtype),
+            nn.ReLU(),
+            nn.Linear(hidden_channels, hidden_channels // 2, dtype=self._dtype),
+            nn.ReLU(),
+            nn.Linear(hidden_channels // 2, num_spectra_points, dtype=self._dtype),
+            nn.ReLU()
+        )
+
         self.contrastive_weight = contrastive_weight
 
         if pretrained_path:
@@ -90,6 +100,8 @@ class CSGCNN(pl.LightningModule):
             return self.projection_head(graph_embedding)
         elif mode == "regression":
             return self.regression_head(graph_embedding).view(-1)
+        elif mode == "spectra":
+            return self.spectral_head(graph_embedding)
         else:
             raise ValueError(
                 "Invalid mode. Use 'encoder', 'projection', or 'regression'."
@@ -103,6 +115,9 @@ class CSGCNN(pl.LightningModule):
 
     def regression(self, data):
         return self.forward(data, mode="regression")
+
+    def spectra(self, data):
+        return self.forward(data, mode="spectra")
 
     def contrastive_loss(self, z1, z2, temperature=0.5):
         z1 = F.normalize(z1, dim=1)
@@ -128,8 +143,13 @@ class CSGCNN(pl.LightningModule):
         # huber_loss = F.smooth_l1_loss(y_pred, y_true)
         return mae_loss
 
+    def spectral_loss(self, y_pred, y_true):
+        mse_loss = F.mse_loss(y_pred, y_true)
+        cosine_loss = 1.0 - F.cosine_similarity(y_pred, y_true)
+        return mse_loss + 0.5 * cosine_loss
+
     def training_step(self, batch, batch_idx):
-        y_hat = self.regression(batch)
+        y_hat = self(batch)
         y_true = batch.y.view(-1)
 
         # Calculate custom loss for training
