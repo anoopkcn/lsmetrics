@@ -51,6 +51,7 @@ class CrystalStructureGraphDataset(Dataset):
     def get(self, idx):
         item = self.data[idx]
         cif_id = item["material_id"]
+        pxrd = item["xrd"]
         structure = Structure.from_dict(item["crystal_structure"])
 
         # Extract node features using the atom initializer
@@ -98,6 +99,7 @@ class CrystalStructureGraphDataset(Dataset):
             edge_index=edge_index,
             edge_attr=edge_attr,
             batch=torch.zeros(node_features.size(0), dtype=torch.long),
+            pxrd=torch.tensor(pxrd, dtype=self.dtype)
         )
 
         if self.target_property is not None:

@@ -4,6 +4,7 @@ import os
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.strategies import DDPStrategy
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset as TorchSubset
 from torch_geometric.data import Dataset as PyGDataset
@@ -11,6 +12,7 @@ from torch_geometric.loader import DataLoader
 
 from lsmetrics.data.dataloader import CrystalStructureGraphDataset
 from lsmetrics.model import get_available_models, get_model
+from lsmetrics.model.csgcnn import CSGCNN
 
 torch.set_default_dtype(torch.float32)
 
@@ -28,7 +30,6 @@ def main(
     datafile,
     num_epochs=100,
     lr=0.05,
-    model_name="CSGCNN",
     resume=None,
     batch_size=32,
     hidden_channels=128,
@@ -48,7 +49,7 @@ def main(
         # calculators=[RBFCalculator()],
         # atom_initializer=atom_custom_json_initializer,
         radius=8,
-        target_property="band_gap",
+        # target_property="band_gap",
     )
 
     train_indices, test_indices = train_test_split(
@@ -114,30 +115,32 @@ def main(
         print("Error: Invalid number of features. Check your dataset implementation.")
         return
 
-    model_class = get_model(model_name)
-
     if resume:
         print(f"Resuming from checkpoint: {resume}")
-        model = model_class.load_from_checkpoint(
+        model = CSGCNN.load_from_checkpoint(
             resume,
             num_node_features=num_node_features,
             num_edge_features=num_edge_features,
             hidden_channels=hidden_channels,
             num_layers=num_layers,
             learning_rate=lr,
+            num_spectra_points = 8501, #TODO: remove this hardcoding
+            output_mode="spectra"
         )
     else:
-        model = model_class(
+        model = CSGCNN(
             num_node_features=num_node_features,
             num_edge_features=num_edge_features,
             hidden_channels=hidden_channels,
             num_layers=num_layers,
             learning_rate=lr,
+            num_spectra_points = 8501,
+            output_mode="spectra"
         )
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=checkpoint_dir,
-        filename=f"{model_name}" + "-model-{epoch:02d}-{val_loss:.2f}",
+        filename="CSGCNN-{epoch:02d}-{val_loss:.2f}",
         save_top_k=3,
         monitor="val_loss",
     )
@@ -147,7 +150,7 @@ def main(
         accelerator="gpu",
         devices="auto",
         # num_nodes=num_nodes,
-        strategy="auto",  # DDPStrategy(find_unused_parameters=False),
+        strategy= "auto" ,#DDPStrategy(find_unused_parameters=False),
         callbacks=[checkpoint_callback],
         log_every_n_steps=10,
     )
@@ -195,11 +198,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+
     main(
         args.datafile,
         args.num_epochs,
         lr=args.lr,
-        model_name=args.model,
         resume=args.resume,
         batch_size=args.batch_size,
         hidden_channels=args.hidden_channels,

@@ -1,17 +1,18 @@
 from typing import Optional
 
-import pytorch_lightning as pl
+import lightning as L
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from loguru import logger
-from pytorch_lightning.utilities.types import OptimizerLRSchedulerConfig
 from torch.optim.adam import Adam
+from torch.optim import Optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.nn import CGConv, global_mean_pool
 
 
-class CSGCNN(pl.LightningModule):
+
+class CSGCNN(L.LightningModule):
     def __init__(
         self,
         num_node_features: int,
@@ -19,14 +20,17 @@ class CSGCNN(pl.LightningModule):
         hidden_channels: int,
         num_layers: int,
         learning_rate: float = 0.01,
-        num_spectra_points: int = 100,
         pretrained_path: Optional[str] = None,
         contrastive_weight: float = 0.5,
+        num_spectra_points:int = 8501,
+        output_mode: str = "regression",
     ):
         super().__init__()
         self.num_layers = num_layers
         self.learning_rate = learning_rate
-        self._dtype = torch.bfloat16
+        self._dtype = torch.float32
+        self.mode = output_mode
+        self.num_spectra_points=num_spectra_points
 
         # Initial node embedding
         self.node_embedding = nn.Linear(
@@ -64,7 +68,7 @@ class CSGCNN(pl.LightningModule):
             nn.ReLU(),
             nn.Linear(hidden_channels, hidden_channels // 2, dtype=self._dtype),
             nn.ReLU(),
-            nn.Linear(hidden_channels // 2, num_spectra_points, dtype=self._dtype),
+            nn.Linear(hidden_channels // 2, self.num_spectra_points, dtype=self._dtype),
             nn.ReLU()
         )
 
@@ -73,11 +77,11 @@ class CSGCNN(pl.LightningModule):
         if pretrained_path:
             self.load_pretrained(pretrained_path)
 
-    def forward(self, data, mode="encoder"):
+    def forward(self, data):
         x, edge_index, edge_attr, batch = (
-            data.x.to(torch.bfloat16),
+            data.x.to(self._dtype),
             data.edge_index,
-            data.edge_attr.to(torch.bfloat16),
+            data.edge_attr.to(self._dtype),
             data.batch,
         )
 
@@ -94,30 +98,20 @@ class CSGCNN(pl.LightningModule):
         # Global pooling
         graph_embedding = global_mean_pool(x, batch)
 
-        if mode == "encoder":
+        if self.mode == "encoder":
             return graph_embedding
-        elif mode == "projection":
+        elif self.mode == "projection":
             return self.projection_head(graph_embedding)
-        elif mode == "regression":
+        elif self.mode == "regression":
             return self.regression_head(graph_embedding).view(-1)
-        elif mode == "spectra":
-            return self.spectral_head(graph_embedding)
+        elif self.mode == "spectra":
+            output = self.spectral_head(graph_embedding)
+            return output.view(-1, self.num_spectra_points)
         else:
             raise ValueError(
                 "Invalid mode. Use 'encoder', 'projection', or 'regression'."
             )
 
-    def encode(self, data):
-        return self.forward(data, mode="encoder")
-
-    def projection(self, data):
-        return self.forward(data, mode="projection")
-
-    def regression(self, data):
-        return self.forward(data, mode="regression")
-
-    def spectra(self, data):
-        return self.forward(data, mode="spectra")
 
     def contrastive_loss(self, z1, z2, temperature=0.5):
         z1 = F.normalize(z1, dim=1)
@@ -136,7 +130,7 @@ class CSGCNN(pl.LightningModule):
         loss = F.cross_entropy(logits, labels)
         return loss
 
-    def custom_loss(self, y_pred, y_true):
+    def regression_loss(self, y_pred, y_true):
         # Your custom loss function
         # mse_loss = F.mse_loss(y_pred, y_true)
         mae_loss = F.l1_loss(y_pred, y_true)
@@ -144,21 +138,46 @@ class CSGCNN(pl.LightningModule):
         return mae_loss
 
     def spectral_loss(self, y_pred, y_true):
+        y_pred = y_pred.view(-1, self.num_spectra_points)
+        y_true = y_true.view(-1, self.num_spectra_points)
+
+        # MSE loss for intensity values
         mse_loss = F.mse_loss(y_pred, y_true)
-        cosine_loss = 1.0 - F.cosine_similarity(y_pred, y_true)
+
+        # Normalized cosine similarity for pattern matching
+        y_pred_norm = F.normalize(y_pred, dim=1)
+        y_true_norm = F.normalize(y_true, dim=1)
+        cosine_loss = 1 - F.cosine_similarity(y_pred_norm, y_true_norm, dim=1).mean()
+
         return mse_loss + 0.5 * cosine_loss
 
     def training_step(self, batch, batch_idx):
-        y_hat = self(batch)
-        y_true = batch.y.view(-1)
+        y_hat = self.forward(batch)
 
-        # Calculate custom loss for training
-        loss = self.custom_loss(y_hat, y_true)
+        if self.mode == "regression":
+            y_true = batch.y.view(-1)
+            loss = self.regression_loss(y_hat, y_true)
+            self.log(
+                "train_mae",
+                F.l1_loss(y_hat, y_true),
+                batch_size=batch.num_graphs,
+                prog_bar=True,
+                sync_dist=True
+            )
 
-        # Calculate MAE for comparison
-        mae = F.l1_loss(y_hat, y_true)
+        elif self.mode == "spectra":
+            y_true = batch.pxrd
+            loss = self.spectral_loss(y_hat, y_true)
 
-        # Log both losses
+        elif self.mode == "projection":
+            # Assuming batch has two views of the same graphs
+            z1 = self.forward(batch.view1)
+            z2 = self.forward(batch.view2)
+            loss = self.contrastive_loss(z1, z2)
+
+        else:  # encoder mode
+            return None  # or some other appropriate handling
+
         self.log(
             "train_loss",
             loss,
@@ -166,54 +185,83 @@ class CSGCNN(pl.LightningModule):
             prog_bar=True,
             sync_dist=True,
         )
-        self.log(
-            "train_mae", mae, batch_size=batch.num_graphs, prog_bar=True, sync_dist=True
-        )
 
         return loss
 
     def validation_step(self, batch, batch_idx):
-        y_hat = self.regression(batch)
-        y_true = batch.y.view(-1)
+        y_hat = self.forward(batch)
 
-        # Calculate custom loss
-        loss = self.custom_loss(y_hat, y_true)
+        if self.mode == "regression":
+            y_true = batch.y.view(-1)
+            loss = self.regression_loss(y_hat, y_true)
+            self.log(
+                "val_mae",
+                F.l1_loss(y_hat, y_true),
+                batch_size=batch.num_graphs,
+                prog_bar=True,
+                sync_dist=True
+            )
 
-        # Calculate MAE for comparison
-        mae = F.l1_loss(y_hat, y_true)
+        elif self.mode == "spectra":
+            y_true = batch.pxrd
+            loss = self.spectral_loss(y_hat, y_true)
 
-        # Log both losses
+        elif self.mode == "projection":
+            z1 = self.forward(batch.view1)
+            z2 = self.forward(batch.view2)
+            loss = self.contrastive_loss(z1, z2)
+
+        else:  # encoder mode
+            return None
+
         self.log(
-            "val_loss", loss, batch_size=batch.num_graphs, prog_bar=True, sync_dist=True
+            "val_loss",
+            loss,
+            batch_size=batch.num_graphs,
+            prog_bar=True,
+            sync_dist=True,
         )
-        self.log(
-            "val_mae", mae, batch_size=batch.num_graphs, prog_bar=True, sync_dist=True
-        )
+
         return loss
 
     def test_step(self, batch, batch_idx):
-        y_hat = self.regression(batch)
-        y_true = batch.y.view(-1)
+        y_hat = self.forward(batch)
 
-        # Calculate MAE for final evaluation
-        mae = F.l1_loss(y_hat, y_true)
+        if self.mode == "regression":
+            y_true = batch.y.view(-1)
+            loss = self.regression_loss(y_hat, y_true)
+            self.log(
+                "test_mae",
+                F.l1_loss(y_hat, y_true),
+                batch_size=batch.num_graphs,
+                prog_bar=True,
+                sync_dist=True
+            )
+
+        elif self.mode == "spectra":
+            y_true = batch.pxrd
+            loss = self.spectral_loss(y_hat, y_true)
+
+        elif self.mode == "projection":
+            z1 = self.forward(batch.view1)
+            z2 = self.forward(batch.view2)
+            loss = self.contrastive_loss(z1, z2)
+
+        else:  # encoder mode
+            return None
 
         self.log(
-            "test_mae", mae, batch_size=batch.num_graphs, prog_bar=True, sync_dist=True
+            "test_loss",
+            loss,
+            batch_size=batch.num_graphs,
+            prog_bar=True,
+            sync_dist=True,
         )
 
-    def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
+    def configure_optimizers(self) -> Optimizer:
         optimizer = Adam(self.parameters(), lr=self.learning_rate, weight_decay=1e-5)
-        scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "monitor": "val_loss",
-                "interval": "epoch",
-                "frequency": 1,
-            },
-        }
+        # scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
+        return optimizer
 
     def from_pretrained(self, ckpt_path, remove_head: bool = True):
         """
@@ -231,7 +279,7 @@ class CSGCNN(pl.LightningModule):
                 state_dict = {
                     k: v
                     for k, v in state_dict.items()
-                    if not k.startswith("output_layer")
+                    if not k.startswith("spectral_head")
                 }
 
             # If it's a checkpoint file, extract just the model state dict
